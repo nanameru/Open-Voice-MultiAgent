@@ -24,7 +24,7 @@ from livekit.agents import (
 from livekit.agents.job import get_job_context
 from livekit.agents.llm import function_tool
 from livekit.agents.voice import MetricsCollectedEvent
-from livekit.agents.stt import STT, SpeechEvent, SpeechEventType, STTCapabilities
+from livekit.agents.stt import STT, SpeechData, SpeechEvent, SpeechEventType, STTCapabilities
 from livekit.plugins import deepgram, openai, silero
 
 # uncomment to enable Krisp BVC noise cancellation, currently supported on Linux and MacOS
@@ -62,13 +62,29 @@ class GroqSTT(STT):
     ) -> SpeechEvent:
         """Transcribe audio using Groq's Whisper API"""
         try:
-            # Prepare audio data
-            buffer.seek(0)
-            audio_data = buffer.read()
+            # AudioFrame または BytesIO から音声データを取得
+            if hasattr(buffer, 'seek'):
+                # BytesIO の場合
+                buffer.seek(0)
+                audio_data = buffer.read()
+            else:
+                # AudioFrame の場合は直接データを取得
+                audio_data = bytes(buffer)
+            
+            # WAV 形式に変換（Groq API は WAV を期待）
+            wav_buffer = io.BytesIO()
+            with wave.open(wav_buffer, 'wb') as wav_file:
+                wav_file.setnchannels(1)  # モノラル
+                wav_file.setsampwidth(2)  # 16-bit
+                wav_file.setframerate(16000)  # 16kHz (Whisper の標準)
+                wav_file.writeframes(audio_data)
+            
+            wav_buffer.seek(0)
+            wav_data = wav_buffer.read()
             
             # Call Groq API (Garvis-style)
             transcription = self.client.audio.transcriptions.create(
-                file=("audio.wav", audio_data),
+                file=("audio.wav", wav_data),
                 model=self.model,
                 language=language or self.language,
             )
@@ -76,17 +92,17 @@ class GroqSTT(STT):
             text = transcription.text
             logger.info(f"Groq STT transcription: {text}")
             
-            # Return speech event
+            # Return speech event with SpeechData object
             return SpeechEvent(
                 type=SpeechEventType.FINAL_TRANSCRIPT,
-                alternatives=[{"text": text, "confidence": 1.0}],
+                alternatives=[SpeechData(text=text, confidence=1.0)],
             )
             
         except Exception as e:
             logger.error(f"Groq STT error: {e}")
             return SpeechEvent(
                 type=SpeechEventType.FINAL_TRANSCRIPT,
-                alternatives=[{"text": "", "confidence": 0.0}],
+                alternatives=[SpeechData(text="", confidence=0.0)],
             )
 
 
