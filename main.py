@@ -1,8 +1,11 @@
 import logging
+import io
+import wave
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, AsyncIterable
 
 from dotenv import load_dotenv
+from groq import Groq
 
 from livekit import api
 from livekit.agents import (
@@ -21,6 +24,7 @@ from livekit.agents import (
 from livekit.agents.job import get_job_context
 from livekit.agents.llm import function_tool
 from livekit.agents.voice import MetricsCollectedEvent
+from livekit.agents.stt import STT, SpeechEvent, SpeechEventType
 from livekit.plugins import deepgram, openai, silero
 
 # uncomment to enable Krisp BVC noise cancellation, currently supported on Linux and MacOS
@@ -34,6 +38,54 @@ from livekit.plugins import deepgram, openai, silero
 logger = logging.getLogger("multi-agent")
 
 load_dotenv(dotenv_path=".env.local")
+
+
+# Groq STT Implementation (Garvis-style)
+class GroqSTT(STT):
+    """Custom STT using Groq's Whisper API (similar to Garvis implementation)"""
+    
+    def __init__(self, model: str = "whisper-large-v3", language: str = "ja"):
+        super().__init__(streaming_supported=False)
+        self.client = Groq()
+        self.model = model
+        self.language = language
+        logger.info(f"Initialized GroqSTT with model: {model}, language: {language}")
+    
+    async def recognize(
+        self,
+        buffer: io.BytesIO,
+        *,
+        language: Optional[str] = None,
+    ) -> SpeechEvent:
+        """Transcribe audio using Groq's Whisper API"""
+        try:
+            # Prepare audio data
+            buffer.seek(0)
+            audio_data = buffer.read()
+            
+            # Call Groq API (Garvis-style)
+            transcription = self.client.audio.transcriptions.create(
+                file=("audio.wav", audio_data),
+                model=self.model,
+                language=language or self.language,
+            )
+            
+            text = transcription.text
+            logger.info(f"Groq STT transcription: {text}")
+            
+            # Return speech event
+            return SpeechEvent(
+                type=SpeechEventType.FINAL_TRANSCRIPT,
+                alternatives=[{"text": text, "confidence": 1.0}],
+            )
+            
+        except Exception as e:
+            logger.error(f"Groq STT error: {e}")
+            return SpeechEvent(
+                type=SpeechEventType.FINAL_TRANSCRIPT,
+                alternatives=[{"text": "", "confidence": 0.0}],
+            )
+
 
 common_instructions = (
     "You are an editor at a leading publishing house, with a strong track record "
@@ -278,7 +330,7 @@ async def entrypoint(ctx: JobContext):
         vad=ctx.proc.userdata["vad"],
         # any combination of STT, LLM, TTS, or realtime API can be used
         llm=openai.LLM(model="gpt-4o-mini"),
-        stt=deepgram.STT(model="nova-3"),
+        stt=GroqSTT(model="whisper-large-v3-turbo", language="ja"),  # Garvis-style Groq STT (Turbo版)
         tts=openai.TTS(voice="ash"),
         userdata=StoryData(),
     )
