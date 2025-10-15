@@ -4,3 +4,5 @@ livekit-plugins-openai==1.2.7
 livekit-plugins-deepgram==1.2.7
 livekit-plugins-silero==1.2.7
 python-dotenv~=1.0
+groq>=0.4.0
+httpx>=0.27.0
