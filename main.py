@@ -122,6 +122,7 @@ common_instructions = (
     "あなたは完全に人間を代替する存在として、効率的かつ高品質な成果を提供します。"
     "常に論理的で、創造的で、実用的なソリューションを提案します。"
     "\n\n**IMPORTANT: Always respond in Japanese (日本語で応答してください).**"
+    "\n\n**応答スタイル: 簡潔で要点を押さえた説明を心がけてください。冗長な説明は避け、核心を端的に伝えてください。**"
 )
 
 
@@ -251,7 +252,7 @@ class LeadEditorAgent(Agent):
                     params={
                         "q": query,
                         "count": 5,  # 上位5件の結果を取得
-                        "search_lang": "jp",  # 日本語優先 (Brave APIでは "jp" を使用)
+                        "search_lang": "ja",  # 日本語優先
                     },
                     timeout=10.0,
                 )
@@ -346,7 +347,7 @@ class SpecialistEditorAgent(Agent):
             "実践的で具体的なアドバイスを行い、プロジェクトの成功を全力でサポートします。",
             # each agent could override any of the model services, including mixing
             # realtime and non-realtime models
-            tts=openai.TTS(voice="echo"),
+            tts=openai.TTS(voice="echo", speed=1.5),  # 1.5倍速で読み上げ
             chat_ctx=chat_ctx,
         )
 
@@ -442,7 +443,7 @@ async def entrypoint(ctx: JobContext):
         # any combination of STT, LLM, TTS, or realtime API can be used
         llm=openai.LLM(model="gpt-5-nano"),  # GPT-5 nano (最も安価・高スループット)
         stt=GroqSTT(model="whisper-large-v3", language="ja"),  # Garvis-style Groq STT (高精度版)
-        tts=openai.TTS(voice="ash"),
+        tts=openai.TTS(voice="ash", speed=1.5),  # 1.5倍速で読み上げ（会話テンポ向上）
         userdata=StoryData(),
     )
 
