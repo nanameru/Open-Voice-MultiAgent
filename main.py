@@ -45,7 +45,7 @@ class GroqSTT(STT):
     """Custom STT using Groq's Whisper API (similar to Garvis implementation)"""
     
     def __init__(self, model: str = "whisper-large-v3", language: str = "ja"):
-        super().__init__(streaming_supported=False)
+        super().__init__()
         self.client = Groq()
         self.model = model
         self.language = language
