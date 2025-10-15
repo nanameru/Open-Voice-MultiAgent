@@ -24,7 +24,7 @@ from livekit.agents import (
 from livekit.agents.job import get_job_context
 from livekit.agents.llm import function_tool
 from livekit.agents.voice import MetricsCollectedEvent
-from livekit.agents.stt import STT, SpeechEvent, SpeechEventType
+from livekit.agents.stt import STT, SpeechEvent, SpeechEventType, STTCapabilities
 from livekit.plugins import deepgram, openai, silero
 
 # uncomment to enable Krisp BVC noise cancellation, currently supported on Linux and MacOS
@@ -45,7 +45,9 @@ class GroqSTT(STT):
     """Custom STT using Groq's Whisper API (similar to Garvis implementation)"""
     
     def __init__(self, model: str = "whisper-large-v3", language: str = "ja"):
-        super().__init__()
+        super().__init__(
+            capabilities=STTCapabilities(streaming=False, interim_results=False)
+        )
         self.client = Groq()
         self.model = model
         self.language = language
