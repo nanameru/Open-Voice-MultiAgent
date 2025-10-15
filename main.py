@@ -51,7 +51,7 @@ class GroqSTT(STT):
         self.language = language
         logger.info(f"Initialized GroqSTT with model: {model}, language: {language}")
     
-    async def recognize(
+    async def _recognize_impl(
         self,
         buffer: io.BytesIO,
         *,
