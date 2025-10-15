@@ -353,7 +353,7 @@ async def entrypoint(ctx: JobContext):
     session = AgentSession[StoryData](
         vad=ctx.proc.userdata["vad"],
         # any combination of STT, LLM, TTS, or realtime API can be used
-        llm=openai.LLM(model="gpt-4o-mini"),
+        llm=openai.LLM(model="gpt-5-nano"),  # GPT-5 nano (最も安価・高スループット)
         stt=GroqSTT(model="whisper-large-v3", language="ja"),  # Garvis-style Groq STT (高精度版)
         tts=openai.TTS(voice="ash"),
         userdata=StoryData(),
