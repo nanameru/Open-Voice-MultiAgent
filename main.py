@@ -58,6 +58,7 @@ class GroqSTT(STT):
         buffer: io.BytesIO,
         *,
         language: Optional[str] = None,
+        **kwargs  # LiveKit が渡す追加引数（conn_options等）を受け取る
     ) -> SpeechEvent:
         """Transcribe audio using Groq's Whisper API"""
         try:
