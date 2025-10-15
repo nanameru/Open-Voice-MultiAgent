@@ -85,12 +85,14 @@ class GroqSTT(STT):
             wav_buffer.seek(0)
             wav_data = wav_buffer.read()
             
-            # Call Groq API (Garvis-style)
+            # Call Groq API with improved settings for accuracy
             used_language = language or self.language
             transcription = self.client.audio.transcriptions.create(
                 file=("audio.wav", wav_data),
                 model=self.model,
                 language=used_language,
+                prompt="出版社の編集者と作家の対話。物語、キャラクター、執筆について話している。",  # 文脈を与えて精度向上
+                temperature=0.0,  # より確実な認識を優先（0.0 = 最も確実、1.0 = 最もランダム）
             )
             
             text = transcription.text
@@ -354,7 +356,7 @@ async def entrypoint(ctx: JobContext):
         vad=ctx.proc.userdata["vad"],
         # any combination of STT, LLM, TTS, or realtime API can be used
         llm=openai.LLM(model="gpt-4o-mini"),
-        stt=GroqSTT(model="whisper-large-v3-turbo", language="ja"),  # Garvis-style Groq STT (Turbo版)
+        stt=GroqSTT(model="whisper-large-v3", language="ja"),  # Garvis-style Groq STT (高精度版)
         tts=openai.TTS(voice="ash"),
         userdata=StoryData(),
     )
