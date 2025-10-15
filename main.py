@@ -251,7 +251,7 @@ class LeadEditorAgent(Agent):
                     params={
                         "q": query,
                         "count": 5,  # 上位5件の結果を取得
-                        "search_lang": "ja",  # 日本語優先
+                        "search_lang": "jp",  # 日本語優先 (Brave APIでは "jp" を使用)
                     },
                     timeout=10.0,
                 )
