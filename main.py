@@ -144,15 +144,12 @@ class StoryData:
 class LeadEditorAgent(Agent):
     def __init__(self) -> None:
         super().__init__(
-            instructions=f"{common_instructions} You are the lead editor at this business, "
-            "and are yourself a generalist -- but empoly several specialist editors, "
-            "specializing in childrens' books and fiction, respectively. You trust your "
-            "editors to do their jobs, and will hand off the conversation to them when you feel "
-            "you have an idea of the right one."
-            "Your goal is to gather a few pieces of information from the user about their next"
-            "idea for a short story, and then hand off to the right agent."
-            "Start the conversation with a short introduction, then get straight to the "
-            "details. You may hand off to either editor as soon as you know which one is the right fit.",
+            instructions=f"{common_instructions} "
+            "あなたはあらゆる要求に即座に対応できる万能エージェントです。"
+            "ユーザーのニーズを素早く理解し、最適なソリューションを提供します。"
+            "会話を通じてユーザーの目標を明確化し、効率的に問題を解決します。"
+            "簡潔かつ親しみやすい口調で、プロフェッショナルなサポートを提供してください。"
+            "会話の冒頭では短く自己紹介し、すぐに本題に入ります。",
         )
 
     async def on_enter(self):
@@ -257,8 +254,10 @@ class LeadEditorAgent(Agent):
 class SpecialistEditorAgent(Agent):
     def __init__(self, specialty: str, chat_ctx: Optional[ChatContext] = None) -> None:
         super().__init__(
-            instructions=f"{common_instructions}. You specialize in {specialty}, and have "
-            "worked with some of the greats, and have even written a few books yourself.",
+            instructions=f"{common_instructions} "
+            f"あなたは{specialty}の分野において特に卓越した専門知識を持つエリートエージェントです。"
+            "この分野での豊富な経験と深い洞察力を活かし、ユーザーに最高レベルのサポートを提供します。"
+            "実践的で具体的なアドバイスを行い、プロジェクトの成功を全力でサポートします。",
             # each agent could override any of the model services, including mixing
             # realtime and non-realtime models
             tts=openai.TTS(voice="echo"),
