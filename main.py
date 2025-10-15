@@ -79,7 +79,7 @@ class GroqSTT(STT):
             with wave.open(wav_buffer, 'wb') as wav_file:
                 wav_file.setnchannels(1)  # モノラル
                 wav_file.setsampwidth(2)  # 16-bit
-                wav_file.setframerate(16000)  # 16kHz (Whisper の標準)
+                wav_file.setframerate(48000)  # 48kHz (高品質音声)
                 wav_file.writeframes(audio_data)
             
             wav_buffer.seek(0)
