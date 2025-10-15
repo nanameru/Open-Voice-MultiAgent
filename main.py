@@ -67,8 +67,11 @@ class GroqSTT(STT):
                 # BytesIO の場合
                 buffer.seek(0)
                 audio_data = buffer.read()
+            elif hasattr(buffer, 'data'):
+                # AudioFrame の場合は .data 属性から取得
+                audio_data = buffer.data.tobytes()
             else:
-                # AudioFrame の場合は直接データを取得
+                # それ以外の場合
                 audio_data = bytes(buffer)
             
             # WAV 形式に変換（Groq API は WAV を期待）
@@ -83,26 +86,28 @@ class GroqSTT(STT):
             wav_data = wav_buffer.read()
             
             # Call Groq API (Garvis-style)
+            used_language = language or self.language
             transcription = self.client.audio.transcriptions.create(
                 file=("audio.wav", wav_data),
                 model=self.model,
-                language=language or self.language,
+                language=used_language,
             )
             
             text = transcription.text
             logger.info(f"Groq STT transcription: {text}")
             
-            # Return speech event with SpeechData object
+            # Return speech event with SpeechData object (language required)
             return SpeechEvent(
                 type=SpeechEventType.FINAL_TRANSCRIPT,
-                alternatives=[SpeechData(text=text, confidence=1.0)],
+                alternatives=[SpeechData(text=text, language=used_language, confidence=1.0)],
             )
             
         except Exception as e:
             logger.error(f"Groq STT error: {e}")
+            used_language = language or self.language
             return SpeechEvent(
                 type=SpeechEventType.FINAL_TRANSCRIPT,
-                alternatives=[SpeechData(text="", confidence=0.0)],
+                alternatives=[SpeechData(text="", language=used_language, confidence=0.0)],
             )
 
 
