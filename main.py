@@ -85,14 +85,12 @@ class GroqSTT(STT):
             wav_buffer.seek(0)
             wav_data = wav_buffer.read()
             
-            # Call Groq API with improved settings for accuracy
+            # Call Groq API (Garvis-style)
             used_language = language or self.language
             transcription = self.client.audio.transcriptions.create(
                 file=("audio.wav", wav_data),
                 model=self.model,
                 language=used_language,
-                prompt="出版社の編集者と作家の対話。物語、キャラクター、執筆について話している。",  # 文脈を与えて精度向上
-                temperature=0.0,  # より確実な認識を優先（0.0 = 最も確実、1.0 = 最もランダム）
             )
             
             text = transcription.text
