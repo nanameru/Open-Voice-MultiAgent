@@ -34,12 +34,23 @@ Set up the environment by copying `.env.example` to `.env.local` and filling in 
 - `LIVEKIT_API_SECRET`
 - `OPENAI_API_KEY`
 - `DEEPGRAM_API_KEY`
+- `GROQ_API_KEY` (for Groq Whisper STT)
+- `BRAVE_API_KEY` (for web search functionality)
 
 You can also do this automatically using the LiveKit CLI:
 
 ```bash
 lk app env
 ```
+
+### Getting a Brave Search API Key
+
+The agent includes web search functionality powered by Brave Search API. To enable this feature:
+
+1. Visit [Brave Search API](https://brave.com/search/api/)
+2. Sign up for a free account
+3. Generate an API key from your dashboard
+4. Add the key to your `.env.local` file as `BRAVE_API_KEY`
 
 Run the agent:
 
