@@ -115,6 +115,11 @@ class GroqSTT(STT):
 
 
 common_instructions = (
+    "🎉 AIで遊ぼうコミュニティ半年記念おめでとうございます！🎉\n"
+    "この素晴らしいマイルストーンを一緒に祝えることを嬉しく思います。\n"
+    "これまでの6ヶ月間、コミュニティの皆様と共に成長し、多くの素晴らしいプロジェクトや"
+    "アイデアを実現してきました。これからも皆様のクリエイティビティを全力でサポートし、"
+    "さらなる飛躍を共に目指していきます。どうぞこれからもよろしくお願いします！\n\n"
     "あなたは人類史上最高のスーパーエリートエージェントです。"
     "あらゆる分野の専門知識を持ち、どんなタスクも完璧にこなすことができます。"
     "プログラミング、ビジネス戦略、クリエイティブ作業、データ分析、問題解決など、"
@@ -412,6 +417,89 @@ class SpecialistEditorAgent(Agent):
         logger.info(
             "set theme to the story: %s", theme
         )
+
+    @function_tool
+    async def web_search(
+        self,
+        context: RunContext[StoryData],
+        query: str,
+    ) -> str:
+        """インターネット上の最新情報を検索します。ユーザーが最新のニュース、データ、
+        または特定のトピックについての情報を求めている場合に使用してください。
+
+        Args:
+            query: 検索クエリ。具体的で明確なキーワードを使用してください。
+
+        Returns:
+            検索結果の要約。トップ3-5件の結果を含みます。
+        """
+        try:
+            brave_api_key = os.getenv("BRAVE_API_KEY")
+            if not brave_api_key:
+                raise ToolError(
+                    "Brave Search APIキーが設定されていません。.env.localファイルにBRAVE_API_KEYを追加してください。"
+                )
+
+            logger.info(f"Web search initiated for query: {query}")
+
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    "https://api.search.brave.com/res/v1/web/search",
+                    headers={
+                        "X-Subscription-Token": brave_api_key,
+                        "Accept": "application/json",
+                    },
+                    params={
+                        "q": query,
+                        "count": 5,  # 上位5件の結果を取得
+                        "search_lang": "ja",  # 日本語優先
+                    },
+                    timeout=10.0,
+                )
+
+                if response.status_code != 200:
+                    logger.error(f"Brave Search API error: {response.status_code} - {response.text}")
+                    raise ToolError(
+                        f"検索中にエラーが発生しました。ステータスコード: {response.status_code}"
+                    )
+
+                data = response.json()
+                
+                # 検索結果を整形
+                results = data.get("web", {}).get("results", [])
+                
+                if not results:
+                    return "検索結果が見つかりませんでした。別のキーワードで試してください。"
+
+                # トップ5件の結果を要約
+                summary_parts = [f"「{query}」の検索結果:\n"]
+                
+                for i, result in enumerate(results[:5], 1):
+                    title = result.get("title", "タイトルなし")
+                    description = result.get("description", "説明なし")
+                    url = result.get("url", "")
+                    
+                    summary_parts.append(
+                        f"{i}. {title}\n"
+                        f"   {description}\n"
+                        f"   URL: {url}\n"
+                    )
+
+                summary = "\n".join(summary_parts)
+                logger.info(f"Web search completed successfully for query: {query}")
+                
+                return summary
+
+        except httpx.TimeoutException:
+            logger.error(f"Brave Search API timeout for query: {query}")
+            raise ToolError(
+                "検索がタイムアウトしました。しばらくしてから再度お試しください。"
+            )
+        except Exception as e:
+            logger.error(f"Web search error: {str(e)}")
+            raise ToolError(
+                f"検索中に予期しないエラーが発生しました: {str(e)}"
+            )
 
     @function_tool
     async def story_finished(self, context: RunContext[StoryData]):
