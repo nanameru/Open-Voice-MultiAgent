@@ -28,7 +28,7 @@ from livekit.agents.job import get_job_context
 from livekit.agents.llm import function_tool, ToolError
 from livekit.agents.voice import MetricsCollectedEvent
 from livekit.agents.stt import STT, SpeechData, SpeechEvent, SpeechEventType, STTCapabilities
-from livekit.plugins import deepgram, openai, silero
+from livekit.plugins import cartesia, deepgram, openai, silero
 
 # uncomment to enable Krisp BVC noise cancellation, currently supported on Linux and MacOS
 # from livekit.plugins import noise_cancellation
@@ -41,6 +41,35 @@ from livekit.plugins import deepgram, openai, silero
 logger = logging.getLogger("multi-agent")
 
 load_dotenv(dotenv_path=".env.local")
+
+
+def create_cartesia_tts(*, speed: Optional[float] = None, voice_env: str = "CARTESIA_VOICE_ID"):
+    """Prepare a Cartesia Sonic-2 TTS instance with env-configured voice."""
+
+    voice_id = os.getenv(voice_env) or os.getenv("CARTESIA_VOICE_ID")
+    if not voice_id:
+        raise RuntimeError(
+            "Cartesia voice ID is not configured. Set CARTESIA_VOICE_ID (or override voice_env)."
+        )
+
+    model_id = os.getenv("CARTESIA_TTS_MODEL", "sonic-2")
+
+    speed_override = os.getenv("CARTESIA_TTS_SPEED")
+    resolved_speed: Optional[float]
+    if speed_override:
+        try:
+            resolved_speed = float(speed_override)
+        except ValueError as exc:
+            raise RuntimeError("CARTESIA_TTS_SPEED must be a numeric value") from exc
+    else:
+        resolved_speed = speed
+
+    return cartesia.TTS(
+        model=model_id,
+        voice=voice_id,
+        language="ja",
+        speed=resolved_speed,
+    )
 
 
 # Groq STT Implementation (Garvis-style)
@@ -347,7 +376,7 @@ class SpecialistEditorAgent(Agent):
             "実践的で具体的なアドバイスを行い、プロジェクトの成功を全力でサポートします。",
             # each agent could override any of the model services, including mixing
             # realtime and non-realtime models
-            tts=openai.TTS(voice="echo", speed=1.5),  # 1.5倍速で読み上げ
+            tts=create_cartesia_tts(voice_env="CARTESIA_SPECIALIST_VOICE_ID"),
             chat_ctx=chat_ctx,
         )
 
@@ -443,7 +472,7 @@ async def entrypoint(ctx: JobContext):
         # any combination of STT, LLM, TTS, or realtime API can be used
         llm=openai.LLM(model="gpt-5-nano"),  # GPT-5 nano (最も安価・高スループット)
         stt=GroqSTT(model="whisper-large-v3", language="ja"),  # Garvis-style Groq STT (高精度版)
-        tts=openai.TTS(voice="ash", speed=1.5),  # 1.5倍速で読み上げ（会話テンポ向上）
+        tts=create_cartesia_tts(),
         userdata=StoryData(),
     )
 

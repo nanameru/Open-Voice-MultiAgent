@@ -1,0 +1,79 @@
+---
+alwaysApply: true
+description: Multi-agent Python project structure and conventions
+---
+
+# Project Structure Guide
+
+このプロジェクトは LiveKit Agents を使用したマルチエージェント音声対話システムです。
+
+## アーキテクチャ概要
+
+- **Backend (Python)**: [main.py](mdc:main.py) がエントリーポイント
+- **Frontend (React)**: [react-ui/](mdc:react-ui/) ディレクトリ内の Next.js アプリケーション
+- **Dependencies**: [requirements.txt](mdc:requirements.txt) でバックエンド依存関係を管理
+
+## ディレクトリ構造
+
+```
+multiagent-python-feature2/
+├── main.py                    # メインエントリーポイント（LiveKit Agent）
+├── requirements.txt           # Python依存関係
+├── .env.local                # 環境変数（Git管理外）
+└── react-ui/                 # フロントエンド
+    ├── app/                  # Next.js App Router
+    │   ├── (app)/           # メインアプリケーションルート
+    │   ├── api/             # APIルート
+    │   └── components/      # ページコンポーネント
+    ├── components/          # 再利用可能コンポーネント
+    │   ├── livekit/        # LiveKit関連コンポーネント
+    │   └── ui/             # UIプリミティブ
+    ├── hooks/              # カスタムReactフック
+    └── lib/                # ユーティリティ関数
+
+```
+
+## 重要な規約
+
+### Python コード
+- **ログ**: `logger = logging.getLogger("multi-agent")` を使用
+- **環境変数**: `dotenv` で `.env.local` から読み込み
+- **非同期処理**: すべてのAgent処理は `async/await` を使用
+- **型ヒント**: 関数シグネチャには型ヒントを必須で追加
+
+### React/TypeScript コード
+- **パッケージマネージャー**: `pnpm` を使用（npm/yarn 禁止）
+- **スタイリング**: Tailwind CSS を使用
+- **状態管理**: React hooks (useState, useEffect, etc.)
+- **コンポーネント**: 関数コンポーネントのみ（クラスコンポーネント禁止）
+
+## 環境変数（.env.local）
+
+以下の環境変数が必要です：
+
+```env
+# LiveKit
+LIVEKIT_URL=
+LIVEKIT_API_KEY=
+LIVEKIT_API_SECRET=
+
+# AI Services
+OPENAI_API_KEY=
+DEEPGRAM_API_KEY=
+GROQ_API_KEY=
+
+# Optional
+BRAVE_API_KEY=  # Web検索機能用
+```
+
+## 開発ワークフロー
+
+1. **バックエンド起動**: `python3 main.py dev`
+2. **フロントエンド起動**: `cd react-ui && pnpm dev`
+3. **動作確認**: http://localhost:3000 でフロントエンドにアクセス
+
+## 変更禁止事項
+
+- **バージョン固定**: requirements.txt と package.json のバージョンは変更前に承認が必要
+- **ディレクトリ構造**: 既存の構造を維持（新規ディレクトリ追加時は相談）
+- **LiveKit API**: 既存のLiveKit統合方法を変更しない

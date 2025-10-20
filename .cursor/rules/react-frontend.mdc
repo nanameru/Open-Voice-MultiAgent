@@ -1,0 +1,357 @@
+---
+description: React frontend development guidelines for LiveKit UI
+globs: react-ui/**/*.ts,react-ui/**/*.tsx,react-ui/**/*.css
+---
+
+# React フロントエンド開発ガイド
+
+Next.js + TypeScript を使用した LiveKit UI の開発規約。
+
+## 技術スタック
+
+- **Framework**: Next.js 15+ (App Router)
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS
+- **Package Manager**: pnpm（必須）
+- **LiveKit**: @livekit/components-react, livekit-client
+
+## プロジェクト構造
+
+```
+react-ui/
+├── app/                      # Next.js App Router
+│   ├── (app)/               # アプリケーションページ
+│   ├── api/                 # API Routes
+│   └── components/          # ページコンポーネント
+├── components/              # 再利用可能コンポーネント
+│   ├── livekit/            # LiveKit統合コンポーネント
+│   │   ├── agent-tile.tsx
+│   │   ├── avatar-tile.tsx
+│   │   └── chat/
+│   ├── ui/                 # UIプリミティブ
+│   └── session-view.tsx    # メインセッションビュー
+├── hooks/                  # カスタムフック
+│   ├── useChatAndTranscription.ts
+│   ├── useConnectionDetails.ts
+│   └── useDebug.ts
+└── lib/                    # ユーティリティ
+    ├── types.ts
+    └── utils.ts
+```
+
+## コンポーネント開発規約
+
+### ファイル命名
+
+- **コンポーネント**: `PascalCase.tsx` (例: `SessionView.tsx`)
+- **フック**: `useCamelCase.ts` (例: `useChatAndTranscription.ts`)
+- **ユーティリティ**: `kebab-case.ts` (例: `utils.ts`)
+
+### コンポーネントの構造
+
+```tsx
+'use client'; // Client Componentの場合
+
+import { useState, useEffect } from 'react';
+import { useConnectionDetails } from '@/hooks/useConnectionDetails';
+
+interface MyComponentProps {
+  title: string;
+  onAction?: () => void;
+}
+
+export function MyComponent({ title, onAction }: MyComponentProps) {
+  // 1. Hooks
+  const [state, setState] = useState<string>('');
+  const { connection } = useConnectionDetails();
+
+  // 2. Effects
+  useEffect(() => {
+    // 副作用処理
+  }, []);
+
+  // 3. Event Handlers
+  const handleClick = () => {
+    onAction?.();
+  };
+
+  // 4. Render
+  return (
+    <div className="p-4 bg-white dark:bg-gray-800">
+      <h2>{title}</h2>
+      <button onClick={handleClick}>Action</button>
+    </div>
+  );
+}
+```
+
+### Props の型定義
+
+```tsx
+// ✅ 推奨: interface を使用
+interface ComponentProps {
+  required: string;
+  optional?: number;
+  children?: React.ReactNode;
+}
+
+// ❌ 避ける: type は Union や Intersection で使用
+type BadProps = {
+  value: string;
+}
+```
+
+## LiveKit 統合
+
+### 接続の確立
+
+```tsx
+import { useConnectionDetails } from '@/hooks/useConnectionDetails';
+
+export function MyLiveKitComponent() {
+  const { connection, error } = useConnectionDetails();
+
+  if (error) {
+    return <div>Error: {error.message}</div>;
+  }
+
+  if (!connection) {
+    return <div>Loading...</div>;
+  }
+
+  return (
+    <LiveKitRoom
+      serverUrl={connection.serverUrl}
+      token={connection.token}
+      connect={true}
+    >
+      {/* LiveKitコンポーネント */}
+    </LiveKitRoom>
+  );
+}
+```
+
+### カスタムフックの使用
+
+```tsx
+import { useChatAndTranscription } from '@/hooks/useChatAndTranscription';
+
+export function ChatComponent() {
+  const {
+    messages,
+    sendMessage,
+    transcriptions
+  } = useChatAndTranscription();
+
+  return (
+    <div>
+      {messages.map(msg => (
+        <div key={msg.id}>{msg.text}</div>
+      ))}
+    </div>
+  );
+}
+```
+
+## スタイリング規約
+
+### Tailwind CSS の使用
+
+```tsx
+// ✅ 推奨: Tailwindクラスを直接使用
+<div className="flex items-center gap-4 p-6 rounded-lg bg-white dark:bg-gray-800">
+  <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+    Content
+  </span>
+</div>
+
+// ✅ 複雑な場合: cn() ユーティリティで結合
+import { cn } from '@/lib/utils';
+
+<div className={cn(
+  "base-classes",
+  isActive && "active-classes",
+  className
+)}>
+  Content
+</div>
+```
+
+### ダークモード対応
+
+```tsx
+// dark: プレフィックスで自動対応
+<div className="bg-white dark:bg-gray-900 text-black dark:text-white">
+  Dark mode supported
+</div>
+```
+
+## 状態管理
+
+### ローカル状態（useState）
+
+```tsx
+// シンプルな状態管理
+const [count, setCount] = useState<number>(0);
+const [user, setUser] = useState<User | null>(null);
+```
+
+### カスタムフックによる状態共有
+
+```tsx
+// hooks/useAgentState.ts
+import { useState, useEffect } from 'react';
+
+export function useAgentState() {
+  const [isConnected, setIsConnected] = useState(false);
+  
+  // 状態管理ロジック
+  
+  return {
+    isConnected,
+    connect: () => setIsConnected(true),
+    disconnect: () => setIsConnected(false),
+  };
+}
+```
+
+## API Routes
+
+### 接続詳細の取得
+
+```tsx
+// app/api/connection-details/route.ts
+import { AccessToken } from 'livekit-server-sdk';
+
+export async function GET(request: Request) {
+  const token = new AccessToken(
+    process.env.LIVEKIT_API_KEY,
+    process.env.LIVEKIT_API_SECRET,
+    {
+      identity: 'user-id',
+    }
+  );
+
+  return Response.json({
+    serverUrl: process.env.LIVEKIT_URL,
+    token: await token.toJwt(),
+  });
+}
+```
+
+## パフォーマンス最適化
+
+### メモ化
+
+```tsx
+import { useMemo, useCallback } from 'react';
+
+// 計算コストの高い処理
+const expensiveValue = useMemo(() => {
+  return computeExpensiveValue(data);
+}, [data]);
+
+// コールバック関数
+const handleClick = useCallback(() => {
+  doSomething(value);
+}, [value]);
+```
+
+### 動的インポート
+
+```tsx
+import dynamic from 'next/dynamic';
+
+// LiveKitコンポーネントは重いため、動的インポート
+const LiveKitRoom = dynamic(
+  () => import('@livekit/components-react').then(mod => mod.LiveKitRoom),
+  { ssr: false }
+);
+```
+
+## エラーハンドリング
+
+### Error Boundary
+
+```tsx
+// components/ErrorBoundary.tsx
+'use client';
+
+import { Component, ReactNode } from 'react';
+
+interface Props {
+  children: ReactNode;
+}
+
+interface State {
+  hasError: boolean;
+}
+
+export class ErrorBoundary extends Component<Props, State> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return <div>Something went wrong.</div>;
+    }
+
+    return this.props.children;
+  }
+}
+```
+
+## テスト
+
+### コンポーネントテスト
+
+```tsx
+import { render, screen } from '@testing-library/react';
+import { MyComponent } from './MyComponent';
+
+describe('MyComponent', () => {
+  it('renders correctly', () => {
+    render(<MyComponent title="Test" />);
+    expect(screen.getByText('Test')).toBeInTheDocument();
+  });
+});
+```
+
+## 開発コマンド
+
+```bash
+# 依存関係インストール
+pnpm install
+
+# 開発サーバー起動
+pnpm dev
+
+# ビルド
+pnpm build
+
+# 本番サーバー起動
+pnpm start
+
+# リント
+pnpm lint
+```
+
+## 重要な注意事項
+
+1. **pnpm必須**: npm や yarn は使用しない
+2. **Server/Client Component**: 適切に使い分ける（'use client' の明示）
+3. **型安全性**: any 型は使用しない
+4. **アクセシビリティ**: ARIA属性を適切に使用
+5. **ダークモード**: すべてのコンポーネントで対応
+6. **レスポンシブ**: モバイル・デスクトップ両方で動作確認
+
+## 避けるべきパターン
+
+❌ **inline styles**: Tailwindを使用
+❌ **Class Components**: 関数コンポーネントのみ
+❌ **Default exports**: Named exports を推奨（ツリーシェイキング）
+❌ **any 型**: 適切な型定義を使用
+❌ **console.log**: デバッグ後は削除

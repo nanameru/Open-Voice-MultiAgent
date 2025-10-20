@@ -22,6 +22,8 @@ export interface AgentControlBarProps
   onSendMessage?: (message: string) => Promise<void>;
   onDisconnect?: () => void;
   onDeviceError?: (error: { source: Track.Source; error: Error }) => void;
+  showLive2D?: boolean;
+  onLive2DToggle?: (show: boolean) => void;
 }
 
 /**
@@ -36,6 +38,8 @@ export function AgentControlBar({
   onChatOpenChange,
   onDisconnect,
   onDeviceError,
+  showLive2D = false,
+  onLive2DToggle,
   ...props
 }: AgentControlBarProps) {
   const participants = useRemoteParticipants();
@@ -217,6 +221,22 @@ export function AgentControlBar({
               <ChatTextIcon weight="bold" />
             </Toggle>
           )}
+
+          {/* Live2Dキャラクター切り替えトグル */}
+          <Toggle
+            variant="secondary"
+            aria-label="Toggle Live2D character"
+            pressed={showLive2D}
+            onPressedChange={onLive2DToggle}
+            className="aspect-square h-full"
+            title={showLive2D ? 'Hide Live2D character' : 'Show Live2D character'}
+          >
+            {showLive2D ? (
+              <span className="text-lg">👤</span>
+            ) : (
+              <span className="text-lg">📊</span>
+            )}
+          </Toggle>
         </div>
         {visibleControls.leave && (
           <Button

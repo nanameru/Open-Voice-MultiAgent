@@ -1,0 +1,240 @@
+---
+description: Audio processing and speech services configuration
+globs: *.py
+---
+
+# 音声処理ガイドライン
+
+LiveKit Agents での STT、TTS、VAD の設定と実装ガイド。
+
+## 現在の構成（main.py）
+
+```python
+session = AgentSession[StoryData](
+    vad=silero.VAD.load(),                           # Voice Activity Detection
+    llm=openai.LLM(model="gpt-5-nano"),             # 最も安価・高スループット
+    stt=GroqSTT(model="whisper-large-v3", language="ja"),  # 高精度日本語認識
+    tts=openai.TTS(voice="ash", speed=1.5),         # 1.5倍速で会話テンポ向上
+)
+```
+
+## STT (Speech-to-Text) 実装
+
+### Groq Whisper カスタムSTT
+
+[main.py](mdc:main.py) の `GroqSTT` クラスを参照。
+
+#### 重要な実装ポイント
+
+1. **音声データの処理**
+
+```python
+# AudioFrame または BytesIO から音声データを取得
+if hasattr(buffer, 'seek'):
+    buffer.seek(0)
+    audio_data = buffer.read()
+elif hasattr(buffer, 'data'):
+    audio_data = buffer.data.tobytes()
+else:
+    audio_data = bytes(buffer)
+```
+
+2. **WAV形式への変換**
+
+```python
+import wave
+import io
+
+wav_buffer = io.BytesIO()
+with wave.open(wav_buffer, 'wb') as wav_file:
+    wav_file.setnchannels(1)      # モノラル
+    wav_file.setsampwidth(2)      # 16-bit
+    wav_file.setframerate(16000)  # 16kHz (Whisper標準)
+    wav_file.writeframes(audio_data)
+```
+
+3. **SpeechEvent の返却**
+
+```python
+return SpeechEvent(
+    type=SpeechEventType.FINAL_TRANSCRIPT,
+    alternatives=[
+        SpeechData(
+            text=transcription.text,
+            language="ja",  # 言語指定必須
+            confidence=1.0
+        )
+    ],
+)
+```
+
+### 利用可能なSTTプラグイン
+
+| プラグイン | 特徴 | 言語サポート |
+|-----------|------|------------|
+| `GroqSTT` (カスタム) | 高精度、日本語に強い | 多言語 |
+| `deepgram.STT` | 高速、ストリーミング対応 | 多言語 |
+| `openai.STT` | OpenAI Whisper API | 多言語 |
+
+### STT選択の基準
+
+- **精度優先**: GroqSTT (`whisper-large-v3`)
+- **速度優先**: Deepgram STT
+- **コスト優先**: OpenAI Whisper (`whisper-1`)
+
+## TTS (Text-to-Speech) 設定
+
+### OpenAI TTS の音声オプション
+
+```python
+from livekit.plugins import openai
+
+# 標準速度
+tts = openai.TTS(voice="ash")
+
+# 高速化（1.5倍速で会話テンポ向上）
+tts = openai.TTS(voice="ash", speed=1.5)
+
+# 低速化（ゆっくり話す）
+tts = openai.TTS(voice="ash", speed=0.75)
+```
+
+### 利用可能な音声
+
+| 音声名 | 特徴 |
+|-------|------|
+| `alloy` | ニュートラル |
+| `ash` | 明瞭、ビジネス向き（推奨） |
+| `echo` | 落ち着いた、男性的 |
+| `fable` | 表現豊か、ストーリーテリング向き |
+| `onyx` | 深い、権威的 |
+| `nova` | 明るい、エネルギッシュ |
+| `shimmer` | 柔らかい、優しい |
+
+### エージェント別のTTS設定
+
+```python
+# Lead Agent: 標準速度
+lead_agent = LeadAgent(
+    tts=openai.TTS(voice="ash", speed=1.0)
+)
+
+# Specialist Agent: 高速化
+specialist = SpecialistAgent(
+    tts=openai.TTS(voice="echo", speed=1.5)
+)
+```
+
+## VAD (Voice Activity Detection)
+
+### Silero VAD の使用
+
+```python
+from livekit.plugins import silero
+
+# プリウォーム時にロード（初回起動高速化）
+def prewarm(proc: JobProcess):
+    proc.userdata["vad"] = silero.VAD.load()
+
+# セッションで使用
+session = AgentSession(
+    vad=ctx.proc.userdata["vad"],
+    # ...
+)
+```
+
+### VAD の役割
+
+- **音声検出**: ユーザーが話し始めたことを検出
+- **無音検出**: ユーザーが話し終わったことを検出
+- **ノイズフィルタリング**: 背景雑音を除外
+
+## 音声品質の最適化
+
+### 推奨設定（日本語対応）
+
+```python
+session = AgentSession(
+    vad=silero.VAD.load(),
+    stt=GroqSTT(
+        model="whisper-large-v3",  # 高精度
+        language="ja"               # 日本語明示
+    ),
+    tts=openai.TTS(
+        voice="ash",
+        speed=1.5  # 会話テンポ向上
+    ),
+    llm=openai.LLM(model="gpt-5-nano"),
+)
+```
+
+### トラブルシューティング
+
+#### STT が正しく認識しない
+
+1. **サンプルレートの確認**: 16kHz に設定されているか
+2. **チャンネル数**: モノラル（1ch）に設定されているか
+3. **言語設定**: `language="ja"` を明示的に指定
+
+#### TTS が途切れる・遅い
+
+1. **速度調整**: `speed` パラメータを調整（0.25〜4.0）
+2. **音声切り替え**: 別の音声に変更してみる
+3. **ネットワーク**: API接続の安定性を確認
+
+#### VAD が反応しない
+
+1. **マイク権限**: ブラウザでマイク許可されているか
+2. **入力デバイス**: 正しいマイクが選択されているか
+3. **音量**: 入力音量が十分か（ミュートされていないか）
+
+## ノイズキャンセリング（オプション）
+
+### Krisp BVC の有効化
+
+```python
+from livekit.plugins import noise_cancellation
+
+await session.start(
+    agent=agent,
+    room=ctx.room,
+    room_input_options=RoomInputOptions(
+        noise_cancellation=noise_cancellation.BVC(),
+    ),
+)
+```
+
+**注意**: 現在 Linux と macOS でのみサポート
+
+## パフォーマンス最適化
+
+### プリウォーム処理
+
+```python
+def prewarm(proc: JobProcess):
+    """初回起動時にモデルをロード（レイテンシ削減）"""
+    proc.userdata["vad"] = silero.VAD.load()
+    # 必要に応じて他のモデルもプリロード
+```
+
+### 並列処理の活用
+
+```python
+# STT と LLM は並列で処理される（LiveKitが自動的に最適化）
+session = AgentSession(
+    stt=stt,  # 音声をリアルタイムで文字起こし
+    llm=llm,  # 同時にLLMで応答を生成
+)
+```
+
+## コスト最適化
+
+### モデル選択の影響
+
+| サービス | モデル | コスト | 精度 | 速度 |
+|---------|-------|-------|------|------|
+| Groq STT | whisper-large-v3 | 低 | 高 | 中 |
+| OpenAI LLM | gpt-5-nano | 最低 | 中 | 最速 |
+| OpenAI TTS | tts-1 | 低 | 高 | 高 |
+
+**推奨構成**: 現在の設定（Groq + GPT-5 nano + OpenAI TTS）は最もコスト効率が良い

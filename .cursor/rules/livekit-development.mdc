@@ -1,0 +1,184 @@
+---
+description: LiveKit development guidelines and best practices
+globs: *.py,*.ts,*.tsx
+---
+
+# LiveKit 開発ガイドライン
+
+LiveKit Agents Framework を使用する際の重要な規約とベストプラクティス。
+
+## Agent クラスの実装
+
+### 基本構造
+
+```python
+from livekit.agents import Agent, RunContext
+
+class MyAgent(Agent):
+    def __init__(self) -> None:
+        super().__init__(
+            instructions="エージェントの指示",
+            # オプション: STT, LLM, TTS のカスタマイズ
+        )
+    
+    async def on_enter(self):
+        """エージェントがセッションに追加された時に呼ばれる"""
+        self.session.generate_reply()
+```
+
+### Function Tools の定義
+
+```python
+from livekit.agents.llm import function_tool
+
+@function_tool
+async def my_tool(
+    self,
+    context: RunContext[UserDataType],
+    param: str,
+) -> str:
+    """ツールの説明（LLMがこれを読んで呼び出しを判断）
+    
+    Args:
+        param: パラメータの説明
+    
+    Returns:
+        結果の説明
+    """
+    # 実装
+    return "結果"
+```
+
+## AgentSession の設定
+
+### 必須設定
+
+```python
+from livekit.agents import AgentSession
+
+session = AgentSession[UserDataType](
+    vad=vad,           # Voice Activity Detection
+    llm=llm,           # Large Language Model
+    stt=stt,           # Speech-to-Text
+    tts=tts,           # Text-to-Speech
+    userdata=UserDataType(),  # 共有データ
+)
+```
+
+### セッション開始
+
+```python
+await session.start(
+    agent=initial_agent,
+    room=ctx.room,
+    room_input_options=RoomInputOptions(),
+    room_output_options=RoomOutputOptions(
+        transcription_enabled=True  # 文字起こし有効化
+    ),
+)
+```
+
+## STT (Speech-to-Text) の実装
+
+### カスタムSTT実装時の注意点
+
+```python
+from livekit.agents.stt import STT, SpeechEvent, SpeechEventType, SpeechData
+
+class CustomSTT(STT):
+    def __init__(self):
+        super().__init__(
+            capabilities=STTCapabilities(
+                streaming=False,      # ストリーミング対応の有無
+                interim_results=False # 中間結果の有無
+            )
+        )
+    
+    async def _recognize_impl(
+        self,
+        buffer: io.BytesIO,
+        *,
+        language: Optional[str] = None,
+        **kwargs  # LiveKitが渡す追加引数を受け取る
+    ) -> SpeechEvent:
+        # 音声データの処理
+        text = await self.transcribe(buffer)
+        
+        # SpeechEventを返す（language必須）
+        return SpeechEvent(
+            type=SpeechEventType.FINAL_TRANSCRIPT,
+            alternatives=[
+                SpeechData(
+                    text=text,
+                    language=language or "ja",
+                    confidence=1.0
+                )
+            ],
+        )
+```
+
+## エージェント間のハンドオフ
+
+### 別エージェントへの切り替え
+
+```python
+@function_tool
+async def switch_to_specialist(
+    self,
+    context: RunContext[SharedData],
+):
+    """専門エージェントに切り替える"""
+    specialist = SpecialistAgent(
+        chat_ctx=context.session._chat_ctx  # チャット履歴を引き継ぐ
+    )
+    
+    logger.info("Switching to specialist agent")
+    return specialist, "切り替えメッセージ"
+```
+
+## メトリクスとログ
+
+### 使用量の収集
+
+```python
+from livekit.agents import metrics
+
+usage_collector = metrics.UsageCollector()
+
+@session.on("metrics_collected")
+def _on_metrics_collected(ev: MetricsCollectedEvent):
+    metrics.log_metrics(ev.metrics)
+    usage_collector.collect(ev.metrics)
+
+async def log_usage():
+    summary = usage_collector.get_summary()
+    logger.info(f"Usage: {summary}")
+
+ctx.add_shutdown_callback(log_usage)
+```
+
+## エラーハンドリング
+
+### ツールエラーの返し方
+
+```python
+from livekit.agents.llm import ToolError
+
+@function_tool
+async def risky_operation(self, context: RunContext):
+    """エラーが発生する可能性のある操作"""
+    try:
+        result = await do_something()
+        return result
+    except Exception as e:
+        logger.error(f"Operation failed: {e}")
+        raise ToolError(f"操作に失敗しました: {str(e)}")
+```
+
+## 重要な注意事項
+
+1. **非同期処理**: すべてのAgent処理は `async def` で定義
+2. **型アノテーション**: `RunContext[UserDataType]` で型を明示
+3. **ログ**: 重要な状態変化は必ずログに記録
+4. **リソース管理**: `ctx.add_shutdown_callback()` でクリーンアップ処理を登録
+5. **日本語対応**: instructions に「**IMPORTANT: Always respond in Japanese**」を含める

@@ -13,6 +13,7 @@ import { AgentControlBar } from '@/components/livekit/agent-control-bar/agent-co
 import { ChatEntry } from '@/components/livekit/chat/chat-entry';
 import { ChatMessageView } from '@/components/livekit/chat/chat-message-view';
 import { MediaTiles } from '@/components/livekit/media-tiles';
+import { Live2DBackground } from '@/components/livekit/live2d-background';
 import useChatAndTranscription from '@/hooks/useChatAndTranscription';
 import { useDebugMode } from '@/hooks/useDebug';
 import type { AppConfig } from '@/lib/types';
@@ -36,6 +37,7 @@ export const SessionView = ({
 }: React.ComponentProps<'div'> & SessionViewProps) => {
   const { state: agentState } = useVoiceAssistant();
   const [chatOpen, setChatOpen] = useState(false);
+  const [showLive2D, setShowLive2D] = useState(false);
   const { messages, send } = useChatAndTranscription();
   const room = useRoomContext();
 
@@ -99,9 +101,13 @@ export const SessionView = ({
         !chatOpen && 'max-h-svh overflow-hidden'
       )}
     >
+      {/* Live2D背景レイヤー */}
+      {showLive2D && <Live2DBackground agentState={agentState} />}
+
       <ChatMessageView
         className={cn(
           'mx-auto min-h-svh w-full max-w-2xl px-3 pt-32 pb-40 transition-[opacity,translate] duration-300 ease-out md:px-0 md:pt-36 md:pb-48',
+          showLive2D && 'bg-background/80 backdrop-blur-sm rounded-lg',
           chatOpen ? 'translate-y-0 opacity-100 delay-200' : 'translate-y-20 opacity-0'
         )}
       >
@@ -167,6 +173,8 @@ export const SessionView = ({
               capabilities={capabilities}
               onChatOpenChange={setChatOpen}
               onSendMessage={handleSendMessage}
+              showLive2D={showLive2D}
+              onLive2DToggle={setShowLive2D}
             />
           </div>
           {/* skrim */}

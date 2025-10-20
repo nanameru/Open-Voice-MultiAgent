@@ -1,0 +1,219 @@
+---
+description: Multi-agent system architecture and patterns
+globs: *.py
+---
+
+# マルチエージェント開発パターン
+
+このプロジェクトで使用するマルチエージェントシステムの設計パターンと実装ガイド。
+
+## エージェントの種類
+
+### 1. Lead Agent（リードエージェント）
+
+**役割**: 最初にユーザーと対話し、適切な専門エージェントにルーティング
+
+**実装例**: [main.py](mdc:main.py) の `LeadEditorAgent`
+
+```python
+class LeadEditorAgent(Agent):
+    def __init__(self) -> None:
+        super().__init__(
+            instructions=f"{common_instructions} "
+            "あなたは万能エージェントです。"
+            "ユーザーのニーズを理解し、適切な専門家にルーティングします。"
+        )
+    
+    @function_tool
+    async def detected_specialty(
+        self,
+        context: RunContext[SharedData],
+    ):
+        """特定の専門分野が検出された時に専門エージェントに切り替え"""
+        specialist = SpecialistAgent(
+            specialty="特定分野",
+            chat_ctx=context.session._chat_ctx
+        )
+        return specialist, "専門家に接続します"
+```
+
+### 2. Specialist Agent（専門エージェント）
+
+**役割**: 特定の分野に特化した深い知識でユーザーをサポート
+
+**実装例**: [main.py](mdc:main.py) の `SpecialistEditorAgent`
+
+```python
+class SpecialistAgent(Agent):
+    def __init__(self, specialty: str, chat_ctx: Optional[ChatContext] = None):
+        super().__init__(
+            instructions=f"{common_instructions} "
+            f"あなたは{specialty}の専門家です。",
+            chat_ctx=chat_ctx,  # 会話履歴を引き継ぐ
+            # 専門エージェント用のカスタマイズ
+            tts=openai.TTS(voice="echo", speed=1.5),
+        )
+```
+
+## 共有データ構造
+
+### データクラスの定義
+
+エージェント間でデータを共有するために `@dataclass` を使用：
+
+```python
+from dataclasses import dataclass, field
+from typing import Optional
+
+@dataclass
+class SharedData:
+    """エージェント間で共有されるデータ"""
+    items: list[str] = field(default_factory=list)
+    metadata: Optional[str] = None
+    
+    def add_item(self, item: str):
+        """データを追加する補助メソッド"""
+        self.items.append(item)
+```
+
+### データへのアクセス
+
+Function tool内で `context.userdata` を通じてアクセス：
+
+```python
+@function_tool
+async def store_data(
+    self,
+    context: RunContext[SharedData],
+    value: str,
+):
+    """共有データに値を保存"""
+    context.userdata.add_item(value)
+    logger.info(f"Stored: {value}")
+```
+
+## エージェント切り替えパターン
+
+### パターン1: チャット履歴を引き継ぐ
+
+新エージェントが過去の会話を全て把握する必要がある場合：
+
+```python
+new_agent = SpecialistAgent(
+    specialty="専門分野",
+    chat_ctx=context.session._chat_ctx  # 履歴を引き継ぐ
+)
+return new_agent, "切り替えメッセージ"
+```
+
+### パターン2: 新規セッションとして開始
+
+過去の会話をリセットし、共有データのみを引き継ぐ場合：
+
+```python
+new_agent = SpecialistAgent(
+    specialty="専門分野",
+    chat_ctx=None  # 履歴なし
+)
+# context.userdata は自動的に引き継がれる
+return new_agent, "新しいセッションを開始します"
+```
+
+## Function Tools の設計
+
+### ルーティング用ツール
+
+```python
+@function_tool
+async def route_to_specialist(
+    self,
+    context: RunContext[SharedData],
+    specialty: str,
+) -> tuple[Agent, str]:
+    """
+    Args:
+        specialty: "children's books", "novels", "poetry" など
+    """
+    agent = create_specialist_agent(specialty, context.session._chat_ctx)
+    return agent, f"{specialty}の専門家に接続します"
+```
+
+### データ収集用ツール
+
+```python
+@function_tool
+async def collect_requirement(
+    self,
+    context: RunContext[SharedData],
+    requirement_type: str,
+    value: str,
+):
+    """ユーザーの要件を収集
+    
+    Args:
+        requirement_type: "character", "location", "theme" など
+        value: 具体的な値
+    """
+    context.userdata.requirements[requirement_type] = value
+    logger.info(f"Collected {requirement_type}: {value}")
+```
+
+### 完了・終了用ツール
+
+```python
+@function_tool
+async def finish_session(self, context: RunContext[SharedData]):
+    """セッションを完了し、フィードバックを提供"""
+    self.session.interrupt()  # 現在の生成を中断
+    
+    # 最終メッセージを生成
+    await self.session.generate_reply(
+        instructions="これまでの内容を簡潔にまとめてください",
+        allow_interruptions=False
+    )
+    
+    # ルームを削除（通話終了）
+    job_ctx = get_job_context()
+    await job_ctx.api.room.delete_room(
+        api.DeleteRoomRequest(room=job_ctx.room.name)
+    )
+```
+
+## 共通指示（Instructions）の設計
+
+### 基本指示テンプレート
+
+```python
+common_instructions = (
+    "あなたは[役割]です。"
+    "[目標・制約]"
+    "\n\n**IMPORTANT: Always respond in Japanese (日本語で応答してください).**"
+    "\n\n**応答スタイル: 簡潔で要点を押さえた説明を心がけてください。**"
+)
+```
+
+### エージェント固有の指示
+
+```python
+agent_specific_instructions = (
+    f"{common_instructions} "
+    f"あなたは{specialty}の専門家として、"
+    "ユーザーのニーズに応じた高度なサポートを提供します。"
+)
+```
+
+## ベストプラクティス
+
+1. **明確な責任分離**: 各エージェントは明確に定義された役割を持つ
+2. **データ共有の最小化**: 必要なデータのみを `userdata` で共有
+3. **ログの充実**: エージェント切り替え時は必ずログを記録
+4. **エラーハンドリング**: ツール内のエラーは適切に処理し、ユーザーに通知
+5. **型安全性**: `RunContext[SpecificDataType]` で型を明示
+6. **テスト可能性**: 各エージェントは独立してテスト可能にする
+
+## 避けるべきアンチパターン
+
+❌ **過度なエージェント数**: 5個以上のエージェントは管理が困難
+❌ **循環参照**: エージェントAがBを呼び、BがAを呼ぶような構造
+❌ **グローバル状態**: エージェント外のグローバル変数に依存しない
+❌ **同期処理**: ブロッキング処理は必ず `async/await` で実装
