@@ -9,15 +9,17 @@ const THEME_SCRIPT = `
   const doc = document.documentElement;
   const theme = localStorage.getItem("${THEME_STORAGE_KEY}") ?? "system";
 
-  if (theme === "system") {
-    if (window.matchMedia("${THEME_MEDIA_QUERY}").matches) {
-      doc.classList.add("dark");
-    } else {
-      doc.classList.add("light");
-    }
-  } else {
-    doc.classList.add(theme);
-  }
+  // Reset and compute effective theme
+  doc.classList.remove("dark", "light");
+  const prefersDark = window.matchMedia("${THEME_MEDIA_QUERY}").matches;
+  const effectiveTheme = theme === "system" ? (prefersDark ? "dark" : "light") : theme;
+
+  // Apply class and dataset for consumers
+  doc.classList.add(effectiveTheme);
+  doc.dataset.theme = effectiveTheme;
+
+  // Notify listeners (e.g., Live2D background) early in head
+  try { window.dispatchEvent(new CustomEvent("themechange", { detail: effectiveTheme })); } catch {}
 `
   .trim()
   .replace(/\n/g, '')
@@ -29,14 +31,14 @@ function applyTheme(theme: ThemeMode) {
   doc.classList.remove('dark', 'light');
   localStorage.setItem(THEME_STORAGE_KEY, theme);
 
-  if (theme === 'system') {
-    if (window.matchMedia(THEME_MEDIA_QUERY).matches) {
-      doc.classList.add('dark');
-    } else {
-      doc.classList.add('light');
-    }
-  } else {
-    doc.classList.add(theme);
+  const prefersDark = window.matchMedia(THEME_MEDIA_QUERY).matches;
+  const effectiveTheme: ThemeMode = (theme === 'system' ? (prefersDark ? 'dark' : 'light') : theme) as ThemeMode;
+
+  doc.classList.add(effectiveTheme);
+  (doc as HTMLElement & { dataset: { theme?: string } }).dataset.theme = effectiveTheme;
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('themechange', { detail: effectiveTheme }));
   }
 }
 
