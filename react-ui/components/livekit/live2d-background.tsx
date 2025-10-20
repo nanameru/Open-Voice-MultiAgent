@@ -86,7 +86,8 @@ export function Live2DBackground({ agentState, className }: Live2DBackgroundProp
         ref={canvasRef}
         width={400}
         height={800}
-        className="max-h-[calc(100vh-200px)]"
+        className="max-h-[calc(100vh-200px)] border-2 border-green-500"
+        style={{ backgroundColor: 'rgba(0, 0, 255, 0.3)' }}
       />
     </div>
   );

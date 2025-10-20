@@ -227,7 +227,10 @@ export function AgentControlBar({
             variant="secondary"
             aria-label="Toggle Live2D character"
             pressed={showLive2D}
-            onPressedChange={onLive2DToggle}
+            onPressedChange={(pressed) => {
+              console.log('[AgentControlBar] Live2D toggle clicked, new state:', pressed);
+              onLive2DToggle?.(pressed);
+            }}
             className="aspect-square h-full"
             title={showLive2D ? 'Hide Live2D character' : 'Show Live2D character'}
           >

@@ -41,6 +41,11 @@ export const SessionView = ({
   const { messages, send } = useChatAndTranscription();
   const room = useRoomContext();
 
+  // デバッグ: showLive2D状態変化を監視
+  useEffect(() => {
+    console.log('[SessionView] showLive2D changed:', showLive2D);
+  }, [showLive2D]);
+
   useDebugMode({
     enabled: process.env.NODE_END !== 'production',
   });

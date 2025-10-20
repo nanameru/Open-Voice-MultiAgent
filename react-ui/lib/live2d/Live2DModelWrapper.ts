@@ -182,8 +182,8 @@ export class Live2DModelWrapper {
     const deltaTime = (now - this._lastUpdateTime) / 1000.0;
     this._lastUpdateTime = now;
 
-    // 画面クリア
-    this._gl.clearColor(0.0, 0.0, 0.0, 0.0);
+    // テスト描画: 赤い画面でWebGLが動作していることを確認
+    this._gl.clearColor(1.0, 0.0, 0.0, 1.0); // 赤色
     this._gl.clear(this._gl.COLOR_BUFFER_BIT);
 
     // モデル更新と描画
@@ -191,6 +191,11 @@ export class Live2DModelWrapper {
       // TODO: モデル更新処理を実装
       // this._model.update();
       // TODO: 描画処理を実装
+    }
+
+    // デバッグ: 最初の数フレームだけログ出力
+    if (deltaTime > 0 && Date.now() - this._lastUpdateTime < 1000) {
+      console.log('[Live2DModelWrapper] Rendering frame, deltaTime:', deltaTime.toFixed(3));
     }
 
     // 次のフレームをリクエスト
