@@ -57,14 +57,17 @@ export function Live2DBackground({ agentState, className }: Live2DBackgroundProp
 
     switch (agentState) {
       case 'listening':
-        modelRef.current.setExpression('neutral');
+        // F01: 通常の表情
+        modelRef.current.setExpression('F01');
         break;
       case 'thinking':
-        modelRef.current.setExpression('neutral');
+        // F03: 考え中の表情
+        modelRef.current.setExpression('F03');
         console.log('[Live2DBackground] Agent is thinking...');
         break;
       case 'speaking':
-        modelRef.current.setExpression('happy');
+        // F02: 笑顔
+        modelRef.current.setExpression('F02');
         console.log('[Live2DBackground] Agent is speaking!');
         break;
       default:

@@ -216,19 +216,21 @@ export class Live2DModelWrapper {
   };
 
   /**
-   * 表情を設定（スタブ）
+   * 表情を設定
    */
-  setExpression(expression: string): void {
-    console.log('[Live2DModelWrapper] setExpression (stub):', expression);
-    // TODO: 表情の実装
+  setExpression(expressionName: string): void {
+    if (this._model) {
+      this._model.setExpression(expressionName);
+    }
   }
 
   /**
-   * モーションを再生（スタブ）
+   * ランダムなモーションを開始
    */
-  playMotion(motion: { group: string; id: string }): void {
-    console.log('[Live2DModelWrapper] playMotion (stub):', motion);
-    // TODO: モーションの実装
+  startRandomMotion(group: string, priority: number = 3): void {
+    if (this._model) {
+      this._model.startRandomMotion(group, priority);
+    }
   }
 
   /**

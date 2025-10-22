@@ -1,6 +1,7 @@
 /**
  * SimpleLive2DModel
- * CubismUserModelを継承した最小限のLive2Dモデルクラス
+ * CubismUserModelを継承したLive2Dモデルクラス
+ * 表情、モーション、まばたき、呼吸などの機能を実装
  */
 
 import { CubismUserModel } from '@framework/model/cubismusermodel';
@@ -8,15 +9,28 @@ import { CubismModelSettingJson } from '@framework/cubismmodelsettingjson';
 import { ICubismModelSetting } from '@framework/icubismmodelsetting';
 import { CubismPhysics } from '@framework/physics/cubismphysics';
 import { CubismMatrix44 } from '@framework/math/cubismmatrix44';
+import { CubismEyeBlink } from '@framework/effect/cubismeyeblink';
+import { CubismBreath, BreathParameterData } from '@framework/effect/cubismbreath';
+import { CubismPose } from '@framework/effect/cubismpose';
+import { csmVector } from '@framework/type/csmvector';
+import { CubismDefaultParameterId } from '@framework/cubismdefaultparameterid';
+import { CubismIdHandle } from '@framework/id/cubismid';
+import { CubismFramework } from '@framework/live2dcubismframework';
+import { CubismMotion } from '@framework/motion/cubismmotion';
+import { CubismExpressionMotion } from '@framework/motion/cubismexpressionmotion';
+import { CubismMotionManager } from '@framework/motion/cubismmotionmanager';
+import { CubismExpressionMotionManager } from '@framework/motion/cubismexpressionmotionmanager';
+import { csmMap } from '@framework/type/csmmap';
 
 enum LoadStep {
   LoadAssets,
   LoadModel,
-  WaitLoadModel,
+  LoadExpression,
   LoadPhysics,
-  WaitLoadPhysics,
-  LoadTexture,
-  WaitLoadTexture,
+  LoadPose,
+  SetupEyeBlink,
+  SetupBreath,
+  LoadMotion,
   CompleteSetup,
 }
 
@@ -28,10 +42,20 @@ export class SimpleLive2DModel extends CubismUserModel {
   private _textures: WebGLTexture[] = [];
   private _gl: WebGLRenderingContext | null = null;
 
+  // モーション・表情管理（基底クラスの_motionManagerは使用）
+  private _expressions: csmMap<string, CubismExpressionMotion> = new csmMap();
+  private _motions: csmMap<string, CubismMotion> = new csmMap();
+
+  // パラメータID
+  private _idParamAngleX: CubismIdHandle | null = null;
+  private _idParamAngleY: CubismIdHandle | null = null;
+  private _idParamAngleZ: CubismIdHandle | null = null;
+  private _idParamBodyAngleX: CubismIdHandle | null = null;
+  private _idParamEyeBallX: CubismIdHandle | null = null;
+  private _idParamEyeBallY: CubismIdHandle | null = null;
+
   /**
    * model3.jsonが置かれたディレクトリとファイルパスからモデルを生成する
-   * @param dir モデルのディレクトリ
-   * @param fileName model3.jsonのファイル名
    */
   public async loadAssets(dir: string, fileName: string): Promise<void> {
     this._modelHomeDir = dir;
@@ -79,10 +103,57 @@ export class SimpleLive2DModel extends CubismUserModel {
 
     console.log('[SimpleLive2DModel] Model created successfully');
 
-    // 物理演算を読み込み
+    // パラメータIDを取得
+    this._idParamAngleX = CubismFramework.getIdManager().getId(CubismDefaultParameterId.ParamAngleX);
+    this._idParamAngleY = CubismFramework.getIdManager().getId(CubismDefaultParameterId.ParamAngleY);
+    this._idParamAngleZ = CubismFramework.getIdManager().getId(CubismDefaultParameterId.ParamAngleZ);
+    this._idParamBodyAngleX = CubismFramework.getIdManager().getId(CubismDefaultParameterId.ParamBodyAngleX);
+    this._idParamEyeBallX = CubismFramework.getIdManager().getId(CubismDefaultParameterId.ParamEyeBallX);
+    this._idParamEyeBallY = CubismFramework.getIdManager().getId(CubismDefaultParameterId.ParamEyeBallY);
+
+    // 各種データを順次読み込み
+    await this.loadExpressions();
     await this.loadPhysics();
+    await this.loadPose();
+    this.setupEyeBlink();
+    this.setupBreath();
+    await this.loadMotions();
 
     this._state = LoadStep.CompleteSetup;
+    console.log('[SimpleLive2DModel] Setup complete');
+  }
+
+  /**
+   * 表情を読み込む
+   */
+  private async loadExpressions(): Promise<void> {
+    if (!this._modelSetting) return;
+
+    const expressionCount = this._modelSetting.getExpressionCount();
+    if (expressionCount === 0) {
+      console.log('[SimpleLive2DModel] No expressions');
+      return;
+    }
+
+    console.log('[SimpleLive2DModel] Loading', expressionCount, 'expressions');
+
+    for (let i = 0; i < expressionCount; i++) {
+      const expressionName = this._modelSetting.getExpressionName(i);
+      const expressionFileName = this._modelSetting.getExpressionFileName(i);
+
+      try {
+        const response = await fetch(`${this._modelHomeDir}${expressionFileName}`);
+        const arrayBuffer = await response.arrayBuffer();
+
+        const expression = CubismExpressionMotion.create(arrayBuffer, arrayBuffer.byteLength);
+        if (expression) {
+          this._expressions.setValue(expressionName, expression);
+          console.log('[SimpleLive2DModel] Expression loaded:', expressionName);
+        }
+      } catch (error) {
+        console.warn('[SimpleLive2DModel] Failed to load expression:', expressionName, error);
+      }
+    }
   }
 
   /**
@@ -105,6 +176,116 @@ export class SimpleLive2DModel extends CubismUserModel {
       console.log('[SimpleLive2DModel] Physics loaded');
     } catch (error) {
       console.warn('[SimpleLive2DModel] Failed to load physics:', error);
+    }
+  }
+
+  /**
+   * ポーズを読み込む
+   */
+  public async loadPose(): Promise<void> {
+    if (!this._modelSetting) return;
+
+    const poseFileName = this._modelSetting.getPoseFileName();
+    if (poseFileName === '') {
+      console.log('[SimpleLive2DModel] No pose file');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${this._modelHomeDir}${poseFileName}`);
+      const arrayBuffer = await response.arrayBuffer();
+
+      this._pose = CubismPose.create(arrayBuffer, arrayBuffer.byteLength);
+      console.log('[SimpleLive2DModel] Pose loaded');
+    } catch (error) {
+      console.warn('[SimpleLive2DModel] Failed to load pose:', error);
+    }
+  }
+
+  /**
+   * まばたきをセットアップ
+   */
+  private setupEyeBlink(): void {
+    if (!this._modelSetting) return;
+
+    if (this._modelSetting.getEyeBlinkParameterCount() > 0) {
+      this._eyeBlink = CubismEyeBlink.create(this._modelSetting);
+      console.log('[SimpleLive2DModel] EyeBlink setup');
+    }
+  }
+
+  /**
+   * 呼吸をセットアップ
+   */
+  private setupBreath(): void {
+    this._breath = CubismBreath.create();
+
+    const breathParameters: csmVector<BreathParameterData> = new csmVector();
+    
+    if (this._idParamAngleX) {
+      breathParameters.pushBack(
+        new BreathParameterData(this._idParamAngleX, 0.0, 15.0, 6.5345, 0.5)
+      );
+    }
+    if (this._idParamAngleY) {
+      breathParameters.pushBack(
+        new BreathParameterData(this._idParamAngleY, 0.0, 8.0, 3.5345, 0.5)
+      );
+    }
+    if (this._idParamAngleZ) {
+      breathParameters.pushBack(
+        new BreathParameterData(this._idParamAngleZ, 0.0, 10.0, 5.5345, 0.5)
+      );
+    }
+    if (this._idParamBodyAngleX) {
+      breathParameters.pushBack(
+        new BreathParameterData(this._idParamBodyAngleX, 0.0, 4.0, 15.5345, 0.5)
+      );
+    }
+
+    this._breath.setParameters(breathParameters);
+    console.log('[SimpleLive2DModel] Breath setup');
+  }
+
+  /**
+   * モーションを読み込む
+   */
+  private async loadMotions(): Promise<void> {
+    if (!this._modelSetting) return;
+
+    // Idleモーションを読み込む
+    const idleMotionCount = this._modelSetting.getMotionCount('Idle');
+    console.log('[SimpleLive2DModel] Loading', idleMotionCount, 'idle motions');
+
+    for (let i = 0; i < idleMotionCount; i++) {
+      const motionFileName = this._modelSetting.getMotionFileName('Idle', i);
+      const name = `Idle_${i}`;
+
+      try {
+        const response = await fetch(`${this._modelHomeDir}${motionFileName}`);
+        const arrayBuffer = await response.arrayBuffer();
+
+        const motion = CubismMotion.create(arrayBuffer, arrayBuffer.byteLength);
+        if (motion) {
+          const fadeInTime = this._modelSetting.getMotionFadeInTimeValue('Idle', i);
+          const fadeOutTime = this._modelSetting.getMotionFadeOutTimeValue('Idle', i);
+
+          if (fadeInTime !== -1.0) {
+            motion.setFadeInTime(fadeInTime);
+          }
+          if (fadeOutTime !== -1.0) {
+            motion.setFadeOutTime(fadeOutTime);
+          }
+
+          // TODO: setEffectIds を実装
+          // motion.setEffectIds(eyeBlinkIds, lipSyncIds);
+
+          this._motions.setValue(name, motion);
+          console.log('[SimpleLive2DModel] Motion loaded:', name);
+        }
+      } catch (error) {
+        console.warn('[SimpleLive2DModel] Failed to load motion:', name, error);
+      }
     }
   }
 
@@ -209,16 +390,78 @@ export class SimpleLive2DModel extends CubismUserModel {
     // パラメータを読み込み
     this._model.loadParameters();
 
-    // 物理演算を適用
-    if (this._physics) {
-      this._physics.evaluate(this._model, deltaTimeSeconds);
+    // モーションによるパラメータ更新
+    let motionUpdated = false;
+
+    if (this._motionManager.isFinished()) {
+      // 待機モーションをランダムで再生
+      this.startRandomMotion('Idle', 3);
+    } else {
+      motionUpdated = this._motionManager.updateMotion(this._model, deltaTimeSeconds);
     }
 
     // パラメータを保存
     this._model.saveParameters();
 
+    // まばたき
+    if (!motionUpdated && this._eyeBlink) {
+      this._eyeBlink.updateParameters(this._model, deltaTimeSeconds);
+    }
+
+    // 表情
+    if (this._expressionManager) {
+      this._expressionManager.updateMotion(this._model, deltaTimeSeconds);
+    }
+
+    // 呼吸
+    if (this._breath) {
+      this._breath.updateParameters(this._model, deltaTimeSeconds);
+    }
+
+    // 物理演算
+    if (this._physics) {
+      this._physics.evaluate(this._model, deltaTimeSeconds);
+    }
+
+    // ポーズ
+    if (this._pose) {
+      this._pose.updateParameters(this._model, deltaTimeSeconds);
+    }
+
     // モデルを更新
     this._model.update();
+  }
+
+  /**
+   * ランダムなモーションを開始
+   */
+  public startRandomMotion(group: string, priority: number): void {
+    if (!this._modelSetting) return;
+
+    const motionCount = this._modelSetting.getMotionCount(group);
+    if (motionCount === 0) return;
+
+    const no = Math.floor(Math.random() * motionCount);
+    const name = `${group}_${no}`;
+
+    const motion = this._motions.getValue(name);
+    if (motion) {
+      this._motionManager.startMotionPriority(motion, false, priority);
+      console.log('[SimpleLive2DModel] Started motion:', name);
+    }
+  }
+
+  /**
+   * 表情を設定
+   */
+  public setExpression(expressionName: string): void {
+    const expression = this._expressions.getValue(expressionName);
+    if (expression) {
+      this._expressionManager.startMotionPriority(expression, false, 1);
+      console.log('[SimpleLive2DModel] Set expression:', expressionName);
+    } else {
+      console.warn('[SimpleLive2DModel] Expression not found:', expressionName);
+    }
   }
 
   /**
@@ -268,6 +511,8 @@ export class SimpleLive2DModel extends CubismUserModel {
     // レンダラーを解放
     this.deleteRenderer();
 
+    // エフェクトをクリア（基底クラスのプロパティなので直接操作しない）
+
     // モデルを解放
     if (this._model) {
       this._model.release();
@@ -277,6 +522,9 @@ export class SimpleLive2DModel extends CubismUserModel {
     if (this._physics) {
       this._physics.release();
     }
+
+    // 表情とモーションを解放
+    this._expressions.clear();
+    this._motions.clear();
   }
 }
-
