@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   type AgentState,
@@ -13,11 +14,16 @@ import { AgentControlBar } from '@/components/livekit/agent-control-bar/agent-co
 import { ChatEntry } from '@/components/livekit/chat/chat-entry';
 import { ChatMessageView } from '@/components/livekit/chat/chat-message-view';
 import { MediaTiles } from '@/components/livekit/media-tiles';
-import { Live2DBackground } from '@/components/livekit/live2d-background';
 import useChatAndTranscription from '@/hooks/useChatAndTranscription';
 import { useDebugMode } from '@/hooks/useDebug';
 import type { AppConfig } from '@/lib/types';
 import { cn } from '@/lib/utils';
+
+// Live2DBackgroundをクライアントサイドのみで読み込む
+const Live2DBackground = dynamic(
+  () => import('@/components/livekit/live2d-background').then(mod => ({ default: mod.Live2DBackground })),
+  { ssr: false }
+);
 
 function isAgentAvailable(agentState: AgentState) {
   return agentState == 'listening' || agentState == 'thinking' || agentState == 'speaking';
