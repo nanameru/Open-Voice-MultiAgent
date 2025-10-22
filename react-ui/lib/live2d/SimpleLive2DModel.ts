@@ -46,6 +46,10 @@ export class SimpleLive2DModel extends CubismUserModel {
   private _expressions: csmMap<string, CubismExpressionMotion> = new csmMap();
   private _motions: csmMap<string, CubismMotion> = new csmMap();
 
+  // まばたき・リップシンク用パラメータID
+  private _eyeBlinkIds: csmVector<CubismIdHandle> = new csmVector();
+  private _lipSyncIds: csmVector<CubismIdHandle> = new csmVector();
+
   // パラメータID
   private _idParamAngleX: CubismIdHandle | null = null;
   private _idParamAngleY: CubismIdHandle | null = null;
@@ -117,6 +121,8 @@ export class SimpleLive2DModel extends CubismUserModel {
     await this.loadPose();
     this.setupEyeBlink();
     this.setupBreath();
+    this.setupEyeBlinkIds();
+    this.setupLipSyncIds();
     await this.loadMotions();
 
     this._state = LoadStep.CompleteSetup;
@@ -248,6 +254,36 @@ export class SimpleLive2DModel extends CubismUserModel {
   }
 
   /**
+   * まばたき用パラメータIDをセットアップ
+   */
+  private setupEyeBlinkIds(): void {
+    if (!this._modelSetting) return;
+
+    const eyeBlinkIdCount = this._modelSetting.getEyeBlinkParameterCount();
+
+    for (let i = 0; i < eyeBlinkIdCount; i++) {
+      this._eyeBlinkIds.pushBack(this._modelSetting.getEyeBlinkParameterId(i));
+    }
+
+    console.log('[SimpleLive2DModel] EyeBlinkIds setup:', eyeBlinkIdCount);
+  }
+
+  /**
+   * リップシンク用パラメータIDをセットアップ
+   */
+  private setupLipSyncIds(): void {
+    if (!this._modelSetting) return;
+
+    const lipSyncIdCount = this._modelSetting.getLipSyncParameterCount();
+
+    for (let i = 0; i < lipSyncIdCount; i++) {
+      this._lipSyncIds.pushBack(this._modelSetting.getLipSyncParameterId(i));
+    }
+
+    console.log('[SimpleLive2DModel] LipSyncIds setup:', lipSyncIdCount);
+  }
+
+  /**
    * モーションを読み込む
    */
   private async loadMotions(): Promise<void> {
@@ -277,8 +313,8 @@ export class SimpleLive2DModel extends CubismUserModel {
             motion.setFadeOutTime(fadeOutTime);
           }
 
-          // TODO: setEffectIds を実装
-          // motion.setEffectIds(eyeBlinkIds, lipSyncIds);
+          // まばたき・リップシンクのIDを設定
+          motion.setEffectIds(this._eyeBlinkIds, this._lipSyncIds);
 
           this._motions.setValue(name, motion);
           console.log('[SimpleLive2DModel] Motion loaded:', name);
