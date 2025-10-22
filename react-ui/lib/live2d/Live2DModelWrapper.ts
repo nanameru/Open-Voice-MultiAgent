@@ -1,62 +1,46 @@
 /**
- * Live2D Cubism SDKのラッパークラス
- * 複雑な低レベルAPIを隠蔽し、React向けの高レベルインターフェースを提供
+ * Live2DModelWrapper
+ * Live2Dモデルの読み込み、更新、描画を管理するラッパークラス
  */
 
 import { CubismFramework, Option } from '@framework/live2dcubismframework';
-import { CubismUserModel } from '@framework/model/cubismusermodel';
-import { CubismModelSettingJson } from '@framework/cubismmodelsettingjson';
-import { ICubismModelSetting } from '@framework/icubismmodelsetting';
-import type { ExpressionParams } from './types';
+import { CubismMatrix44 } from '@framework/math/cubismmatrix44';
+import { SimpleLive2DModel } from './SimpleLive2DModel';
 
-// Live2DCubismCoreへの参照
-declare const Live2DCubismCore: any;
-
-/**
- * Live2Dモデルラッパークラス
- */
 export class Live2DModelWrapper {
-  private _model: CubismUserModel | null = null;
-  private _canvas: HTMLCanvasElement | null = null;
+  private _model: SimpleLive2DModel | null = null;
   private _gl: WebGLRenderingContext | null = null;
+  private _canvas: HTMLCanvasElement | null = null;
   private _animationId: number | null = null;
   private _lastUpdateTime: number = 0;
   private _isInitialized: boolean = false;
   private _initPromise: Promise<void> | null = null;
-
-  constructor() {
-    // 初期化は遅延実行（loadModel時に実行）
-  }
+  private _projection: CubismMatrix44 | null = null;
 
   /**
-   * Cubism Frameworkの初期化（遅延実行・1回のみ）
+   * Cubismフレームワークを初期化
    */
   private async ensureInitialized(): Promise<void> {
     if (this._isInitialized) return;
-
-    // 既に初期化中の場合は、その完了を待つ
     if (this._initPromise) {
       await this._initPromise;
       return;
     }
-
-    // 初期化開始
     this._initPromise = this.initializeCubism();
     await this._initPromise;
   }
 
   /**
-   * Cubism Frameworkの初期化
+   * Cubism Frameworkの初期化処理
    */
   private async initializeCubism(): Promise<void> {
-    // Live2DCubismCoreがロードされるまで待機
+    // Live2DCubismCoreが読み込まれるまで待機
     await this.waitForCubismCore();
 
     try {
-      // Cubism Frameworkの初期化オプション
       const cubismOption: Option = {
         logFunction: (message: string) => console.log('[Live2D]', message),
-        loggingLevel: 0, // 本番環境ではログを抑制
+        loggingLevel: 0, // LogLevel.Verbose
       };
 
       CubismFramework.startUp(cubismOption);
@@ -66,16 +50,16 @@ export class Live2DModelWrapper {
       console.log('[Live2DModelWrapper] Cubism Framework initialized');
     } catch (error) {
       console.error('[Live2DModelWrapper] Failed to initialize Cubism Framework:', error);
-      this._initPromise = null; // エラー時はリトライ可能にする
+      this._initPromise = null;
       throw error;
     }
   }
 
   /**
-   * Live2DCubismCoreがロードされるまで待機
+   * Live2DCubismCoreが読み込まれるまで待機
    */
   private async waitForCubismCore(): Promise<void> {
-    const maxAttempts = 50; // 最大5秒待機
+    const maxAttempts = 50;
     let attempts = 0;
 
     return new Promise((resolve, reject) => {
@@ -100,40 +84,27 @@ export class Live2DModelWrapper {
   }
 
   /**
-   * モデルの読み込み
-   * @param modelPath - model3.jsonのパス
+   * モデルを読み込む
+   * @param modelPath model3.jsonのパス
    */
   async loadModel(modelPath: string): Promise<void> {
-    // Cubism Frameworkの初期化を確認
     await this.ensureInitialized();
 
     try {
-      // JSONファイルを取得
-      const response = await fetch(modelPath);
-      if (!response.ok) {
-        throw new Error(`Failed to load model: ${response.statusText}`);
-      }
+      // パスを分解
+      const lastSlash = modelPath.lastIndexOf('/');
+      const dir = modelPath.substring(0, lastSlash + 1);
+      const fileName = modelPath.substring(lastSlash + 1);
 
-      const modelJsonText = await response.text();
-      const encoder = new TextEncoder();
-      const modelJsonBuffer = encoder.encode(modelJsonText).buffer;
-      const setting = new CubismModelSettingJson(modelJsonBuffer, modelJsonBuffer.byteLength);
+      console.log('[Live2DModelWrapper] Loading model:', { dir, fileName });
 
-      // モデルファイルのベースパス
-      const basePath = modelPath.substring(0, modelPath.lastIndexOf('/') + 1);
+      // モデルを作成
+      this._model = new SimpleLive2DModel();
 
-      // .moc3ファイルを読み込み
-      const mocFileName = setting.getModelFileName();
-      const mocPath = basePath + mocFileName;
-      const mocResponse = await fetch(mocPath);
-      const mocArrayBuffer = await mocResponse.arrayBuffer();
+      // モデルをロード
+      await this._model.loadAssets(dir, fileName);
 
-      // モデルを作成（簡略版 - 実際にはCubismUserModelを継承したクラスが必要）
       console.log('[Live2DModelWrapper] Model loaded:', modelPath);
-      
-      // TODO: 本格的な実装では、CubismUserModelを継承したカスタムクラスでモデルを管理
-      // 現在は基本的なログ出力のみ
-      
     } catch (error) {
       console.error('[Live2DModelWrapper] Failed to load model:', error);
       throw error;
@@ -141,30 +112,49 @@ export class Live2DModelWrapper {
   }
 
   /**
-   * レンダリング開始
-   * @param canvas - 描画先のCanvas要素
+   * レンダリングを開始
+   * @param canvas 描画先のcanvas要素
    */
   async startRendering(canvas: HTMLCanvasElement): Promise<void> {
-    if (!canvas) {
-      console.error('[Live2DModelWrapper] Canvas is null');
-      return;
-    }
-
-    // Cubism Frameworkの初期化を確認
     await this.ensureInitialized();
+
+    if (!this._model) {
+      throw new Error('Model not loaded. Call loadModel() first.');
+    }
 
     this._canvas = canvas;
 
     // WebGLコンテキストを取得
-    const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+    const gl = canvas.getContext('webgl', {
+      alpha: true,
+      premultipliedAlpha: true,
+    }) || canvas.getContext('experimental-webgl', {
+      alpha: true,
+      premultipliedAlpha: true,
+    }) as WebGLRenderingContext | null;
+
     if (!gl) {
-      console.error('[Live2DModelWrapper] Failed to get WebGL context');
-      return;
+      throw new Error('Failed to get WebGL context');
     }
 
-    this._gl = gl as WebGLRenderingContext;
+    this._gl = gl;
 
-    // レンダリングループ開始
+    console.log('[Live2DModelWrapper] WebGL context created');
+
+    // レンダラーをセットアップ
+    this._model.setupRenderer(gl, canvas.width, canvas.height);
+
+    // projection行列を作成
+    this._projection = new CubismMatrix44();
+    this.updateProjection();
+
+    // モデル行列を設定（画面下部に配置）
+    const modelMatrix = this._model.getModelMatrix();
+    modelMatrix.setHeight(2.0);
+    modelMatrix.centerX(0.0);
+    modelMatrix.setY(-1.0); // 画面下部に配置
+
+    // レンダリングループを開始
     this._lastUpdateTime = Date.now();
     this.renderLoop();
 
@@ -172,30 +162,53 @@ export class Live2DModelWrapper {
   }
 
   /**
+   * projection行列を更新
+   */
+  private updateProjection(): void {
+    if (!this._projection || !this._canvas) return;
+
+    const { width, height } = this._canvas;
+
+    this._projection.loadIdentity();
+
+    if (width > height) {
+      // 横長の場合
+      const ratio = width / height;
+      this._projection.scale(1.0 / ratio, 1.0);
+    } else {
+      // 縦長の場合
+      const ratio = height / width;
+      this._projection.scale(1.0, 1.0 / ratio);
+    }
+  }
+
+  /**
    * レンダリングループ
    */
   private renderLoop = (): void => {
-    if (!this._canvas || !this._gl) return;
+    if (!this._gl || !this._model || !this._projection) {
+      console.warn('[Live2DModelWrapper] Rendering components not ready');
+      return;
+    }
 
     // 時間更新
     const now = Date.now();
     const deltaTime = (now - this._lastUpdateTime) / 1000.0;
     this._lastUpdateTime = now;
 
-    // テスト描画: 赤い画面でWebGLが動作していることを確認
-    this._gl.clearColor(1.0, 0.0, 0.0, 1.0); // 赤色
+    // 画面クリア（透明）
+    this._gl.clearColor(0.0, 0.0, 0.0, 0.0);
     this._gl.clear(this._gl.COLOR_BUFFER_BIT);
 
-    // モデル更新と描画
-    if (this._model) {
-      // TODO: モデル更新処理を実装
-      // this._model.update();
-      // TODO: 描画処理を実装
-    }
+    // モデル更新
+    this._model.update(deltaTime);
+
+    // モデル描画
+    this._model.draw(this._projection);
 
     // デバッグ: 最初の数フレームだけログ出力
-    if (deltaTime > 0 && Date.now() - this._lastUpdateTime < 1000) {
-      console.log('[Live2DModelWrapper] Rendering frame, deltaTime:', deltaTime.toFixed(3));
+    if (deltaTime > 0 && now - this._lastUpdateTime + deltaTime * 1000 < 2000) {
+      console.log('[Live2DModelWrapper] Rendered frame, deltaTime:', deltaTime.toFixed(3));
     }
 
     // 次のフレームをリクエスト
@@ -203,85 +216,44 @@ export class Live2DModelWrapper {
   };
 
   /**
-   * 表情設定
-   * @param emotion - 感情文字列 ('happy', 'sad', 'neutral'等)
+   * 表情を設定（スタブ）
    */
-  setExpression(emotion: string): void {
-    if (!this._model) {
-      console.warn('[Live2DModelWrapper] Model not loaded');
-      return;
-    }
-
-    console.log('[Live2DModelWrapper] Set expression:', emotion);
-    
-    // TODO: 表情モーション再生の実装
-    // this._model.setExpression(emotion);
+  setExpression(expression: string): void {
+    console.log('[Live2DModelWrapper] setExpression (stub):', expression);
+    // TODO: 表情の実装
   }
 
   /**
-   * モーション再生
-   * @param group - モーショングループ名
-   * @param id - モーションID
-   * @param priority - 優先度
+   * モーションを再生（スタブ）
    */
-  playMotion(group: string, id: string, priority: number = 2): void {
-    if (!this._model) {
-      console.warn('[Live2DModelWrapper] Model not loaded');
-      return;
-    }
-
-    console.log('[Live2DModelWrapper] Play motion:', group, id);
-    
-    // TODO: モーション再生の実装
-    // this._model.startMotion(group, id, priority);
+  playMotion(motion: { group: string; id: string }): void {
+    console.log('[Live2DModelWrapper] playMotion (stub):', motion);
+    // TODO: モーションの実装
   }
 
   /**
-   * リップシンク設定
-   * @param value - 口の開き具合 (0.0-1.0)
-   */
-  setLipSync(value: number): void {
-    if (!this._model) return;
-
-    // TODO: リップシンクパラメータの設定
-    // this._model.setParameterValueById('ParamMouthOpenY', value);
-  }
-
-  /**
-   * パラメータを直接設定
-   * @param params - 表情パラメータ
-   */
-  setParameters(params: Partial<ExpressionParams>): void {
-    if (!this._model) return;
-
-    console.log('[Live2DModelWrapper] Set parameters:', params);
-    
-    // TODO: パラメータ設定の実装
-  }
-
-  /**
-   * リソース解放
+   * リソースを解放
    */
   destroy(): void {
     console.log('[Live2DModelWrapper] Destroying...');
 
-    // レンダリング停止
+    // レンダリングループを停止
     if (this._animationId !== null) {
       cancelAnimationFrame(this._animationId);
       this._animationId = null;
     }
 
-    // モデル解放
+    // モデルを解放
     if (this._model) {
       this._model.release();
       this._model = null;
     }
 
-    // WebGLコンテキスト解放
+    // WebGLコンテキストを解放
     this._gl = null;
     this._canvas = null;
+    this._projection = null;
 
     console.log('[Live2DModelWrapper] Destroyed');
   }
 }
-
