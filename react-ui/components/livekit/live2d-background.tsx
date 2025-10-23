@@ -87,9 +87,9 @@ export function Live2DBackground({ agentState, className }: Live2DBackgroundProp
       {/* Live2Dキャラクターを画面中央に配置 */}
       <canvas
         ref={canvasRef}
-        width={1000}
-        height={1400}
-        className="max-h-[90vh]"
+        width={800}
+        height={1200}
+        className="max-h-[80vh]"
       />
     </div>
   );

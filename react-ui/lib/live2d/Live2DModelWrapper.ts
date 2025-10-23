@@ -150,9 +150,9 @@ export class Live2DModelWrapper {
 
     // モデル行列を設定（画面中央に配置）
     const modelMatrix = this._model.getModelMatrix();
-    modelMatrix.setHeight(3.5); // モデルを大きく表示
+    modelMatrix.setHeight(2.8); // モデルサイズを調整
     modelMatrix.centerX(0.0);
-    modelMatrix.setY(0.0); // 画面中央に配置
+    modelMatrix.setY(-0.2); // 少し下に配置
 
     // レンダリングループを開始
     this._lastUpdateTime = Date.now();
