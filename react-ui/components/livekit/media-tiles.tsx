@@ -88,9 +88,10 @@ export function useLocalTrackRef(source: Track.Source) {
 
 interface MediaTilesProps {
   chatOpen: boolean;
+  showLive2D?: boolean;
 }
 
-export function MediaTiles({ chatOpen }: MediaTilesProps) {
+export function MediaTiles({ chatOpen, showLive2D = false }: MediaTilesProps) {
   const {
     state: agentState,
     audioTrack: agentAudioTrack,
@@ -146,6 +147,7 @@ export function MediaTiles({ chatOpen }: MediaTilesProps) {
                   transition={agentLayoutTransition}
                   state={agentState}
                   audioTrack={agentAudioTrack}
+                  hideBarVisualizer={showLive2D}
                   className={cn(chatOpen ? 'h-[90px]' : 'h-auto w-full')}
                 />
               )}

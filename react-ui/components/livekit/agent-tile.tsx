@@ -5,14 +5,21 @@ interface AgentAudioTileProps {
   state: AgentState;
   audioTrack: TrackReference;
   className?: string;
+  hideBarVisualizer?: boolean;
 }
 
 export const AgentTile = ({
   state,
   audioTrack,
   className,
+  hideBarVisualizer = false,
   ref,
 }: React.ComponentProps<'div'> & AgentAudioTileProps) => {
+  // Live2D表示中はBarVisualizerを非表示
+  if (hideBarVisualizer) {
+    return <div ref={ref} className={cn(className)} />;
+  }
+
   return (
     <div ref={ref} className={cn(className)}>
       <BarVisualizer
