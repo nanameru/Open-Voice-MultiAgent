@@ -5,6 +5,7 @@
  * that can be found at https://www.live2d.com/eula/live2d-open-software-license-agreement_en.html.
  */
 
+// @ts-nocheck - Original CubismSDK implementation with type inconsistencies
 import { CubismMatrix44 } from '../math/cubismmatrix44';
 import {
   CubismColorBlend,
