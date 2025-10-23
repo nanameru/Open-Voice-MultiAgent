@@ -148,11 +148,11 @@ export class Live2DModelWrapper {
     this._projection = new CubismMatrix44();
     this.updateProjection();
 
-    // モデル行列を設定（画面下部に配置）
+    // モデル行列を設定（画面中央に配置）
     const modelMatrix = this._model.getModelMatrix();
-    modelMatrix.setHeight(2.0);
+    modelMatrix.setHeight(3.5); // モデルを大きく表示
     modelMatrix.centerX(0.0);
-    modelMatrix.setY(-1.0); // 画面下部に配置
+    modelMatrix.setY(0.0); // 画面中央に配置
 
     // レンダリングループを開始
     this._lastUpdateTime = Date.now();

@@ -79,17 +79,17 @@ export function Live2DBackground({ agentState, className }: Live2DBackgroundProp
     <div
       className={cn(
         'fixed inset-0 z-10',
-        'flex items-end justify-center',
+        'flex items-center justify-center',
         'pointer-events-none',
         className
       )}
     >
-      {/* Live2Dキャラクターを画面下部に配置 */}
+      {/* Live2Dキャラクターを画面中央に配置 */}
       <canvas
         ref={canvasRef}
-        width={400}
-        height={800}
-        className="max-h-[calc(100vh-200px)]"
+        width={1000}
+        height={1400}
+        className="max-h-[90vh]"
       />
     </div>
   );
