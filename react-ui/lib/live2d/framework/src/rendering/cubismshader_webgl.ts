@@ -65,7 +65,7 @@ export class CubismShader_WebGL {
    * ブレンドモード用のシェーダーを読み込む
    */
   private async loadBlendModeShaders(): Promise<void> {
-    const shaderDir = '../../Framework/Shaders/WebGL/';
+    const shaderDir = '/live2d/shaders/';
 
     // シェーダーファイルのパスとプロパティの対応
     // NOTE: prop は CubismShader_WebGL に設定された変数名
