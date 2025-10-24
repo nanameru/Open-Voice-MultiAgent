@@ -6,6 +6,7 @@ import wave
 import os
 import json
 import httpx
+import asyncio
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from typing import Optional, AsyncIterable, Any, AsyncIterator
@@ -37,7 +38,7 @@ from livekit.rtc import AudioFrame
 from livekit.plugins import cartesia, deepgram, openai, silero
 
 # Fish Audio SDK
-from fish_audio_sdk import AsyncWebSocketSession, TTSRequest
+from fish_audio_sdk import WebSocketSession, TTSRequest
 from fish_audio_sdk.schemas import Prosody
 
 # uncomment to enable Krisp BVC noise cancellation, currently supported on Linux and MacOS
@@ -262,13 +263,6 @@ class FishAudioTTS(TTS):
         """
         async def _generate() -> AsyncIterator[SynthesizedAudio]:
             try:
-                # WebSocketセッションの作成
-                ws_session = AsyncWebSocketSession(self.api_key)
-                
-                # テキストストリーミング用のジェネレーター
-                async def text_stream():
-                    yield text
-                
                 # TTSリクエストの構築
                 request = TTSRequest(
                     text="",  # WebSocketではテキストを空にする
@@ -288,17 +282,32 @@ class FishAudioTTS(TTS):
                 
                 logger.info(f"Fish Audio TTS: synthesizing text (length={len(text)}) via WebSocket")
                 
-                # 全音声データを格納するバッファ
-                audio_buffer = bytearray()
+                # 同期版WebSocketSessionを非同期で実行
+                def sync_tts():
+                    # WebSocketセッションの作成（同期版）
+                    ws_session = WebSocketSession(self.api_key)
+                    
+                    # テキストストリーミング用のジェネレーター（同期版）
+                    def text_stream():
+                        yield text
+                    
+                    # 全音声データを格納するバッファ
+                    audio_buffer = bytearray()
+                    
+                    # WebSocketで音声を生成し、全チャンクを収集（同期版）
+                    with ws_session:
+                        for chunk in ws_session.tts(
+                            request,
+                            text_stream(),
+                            backend=self.model  # モデル指定（同期版のみサポート）
+                        ):
+                            # チャンクをバッファに追加
+                            audio_buffer.extend(chunk)
+                    
+                    return audio_buffer
                 
-                # WebSocketで音声を生成し、全チャンクを収集
-                async with ws_session:
-                    async for chunk in ws_session.tts(
-                        request,
-                        text_stream()
-                    ):
-                        # チャンクをバッファに追加
-                        audio_buffer.extend(chunk)
+                # 同期処理を非同期で実行
+                audio_buffer = await asyncio.to_thread(sync_tts)
                 
                 # バッファをnumpy配列に変換
                 audio_data = np.frombuffer(audio_buffer, dtype=np.int16)
