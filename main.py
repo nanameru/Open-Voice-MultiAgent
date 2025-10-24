@@ -294,8 +294,8 @@ class FishAudioTTS(TTS):
                 async with ws_session:
                     async for chunk in ws_session.tts(
                         request,
-                        text_stream(),
-                        backend=self.model  # モデル指定（例: "s1"）
+                        text_stream()
+                        # backend パラメータは削除（デフォルトモデルを使用）
                     ):
                         # チャンクをバッファに追加
                         audio_buffer.extend(chunk)
@@ -305,18 +305,16 @@ class FishAudioTTS(TTS):
                 
                 logger.info(f"Fish Audio TTS: WebSocket synthesis completed (samples={len(audio_data)})")
                 
-                # 単一のSynthesizedAudioオブジェクトをyield
+                # 単一のSynthesizedAudioオブジェクトをyield（textパラメータは不要）
                 yield SynthesizedAudio(
-                    text=text,
-                    data=audio_data,
+                    frame=audio_data,
                 )
                 
             except Exception as e:
                 logger.error(f"Fish Audio TTS WebSocket error: {e}")
                 # エラー時は空の音声を返す
                 yield SynthesizedAudio(
-                    text=text,
-                    data=np.array([], dtype=np.int16),
+                    frame=np.array([], dtype=np.int16),
                 )
         
         # イテレーターをyield（コンテキストマネージャーとして）
