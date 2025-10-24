@@ -502,6 +502,13 @@ export class SimpleLive2DModel extends CubismUserModel {
         return;
       }
 
+      // フェードイン/アウト時間を設定（デフォルト値）
+      motion.setFadeInTime(0.5);
+      motion.setFadeOutTime(0.5);
+
+      // まばたき・リップシンクのIDを設定（重要！）
+      motion.setEffectIds(this._eyeBlinkIds, this._lipSyncIds);
+
       // モーションを再生
       const motionHandle = this._motionManager.startMotionPriority(
         motion,
