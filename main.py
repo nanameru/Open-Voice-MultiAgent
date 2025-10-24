@@ -470,13 +470,16 @@ class LeadEditorAgent(Agent):
         """Live2Dキャラクターのモーションを再生する。
         
         **このツールは以下の場面で必ず使用してください：**
-        1. ユーザーが「手を振って」「バイバイ」「こんにちは」などと言った時
+        1. ユーザーが「手を振って」「バイバイ」「こんにちは」「反応して」などと言った時
         2. 会話の開始時や終了時の挨拶
-        3. ユーザーが直接モーションを要求した時
+        3. ユーザーが直接モーションやリアクションを要求した時
         
         使用例:
-        - 挨拶・別れ・手を振る: "TapBody" (手を振る動作) ← ユーザーが「手を振って」と言ったら必ず実行
+        - 挨拶・別れ・リアクション: "TapBody" (体をタップされた時のリアクションモーション - 照れる、驚く、うなずくなど) ← ユーザーが何か反応を求めたら実行
         - 通常の会話: "Idle" (自然な待機動作)
+        
+        **注意**: "TapBody"は様々なリアクションをランダムで再生します。「手を振る」専用ではありませんが、
+        ユーザーが「手を振って」と言った場合も、何らかのリアクションとして使用してください。
         
         Args:
             motion_group: モーショングループ名 ("Idle" または "TapBody")
@@ -506,7 +509,11 @@ class LeadEditorAgent(Agent):
             )
             
             logger.info(f"[Live2D] Motion data sent successfully: {motion_group}")
-            return f"モーション '{motion_group}' を再生しました"
+            # ユーザーに分かりやすいメッセージを返す
+            if motion_group == "TapBody":
+                return "リアクションしました！"
+            else:
+                return f"モーション '{motion_group}' を再生しました"
             
         except Exception as e:
             logger.error(f"[Live2D] Failed to send motion data: {e}")
