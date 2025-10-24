@@ -298,8 +298,7 @@ class FishAudioTTS(TTS):
                     with ws_session:
                         for chunk in ws_session.tts(
                             request,
-                            text_stream(),
-                            backend=self.model  # モデル指定（同期版のみサポート）
+                            text_stream()
                         ):
                             # チャンクをバッファに追加
                             audio_buffer.extend(chunk)
