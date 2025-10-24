@@ -295,8 +295,7 @@ class FishAudioTTS(TTS):
                 async with ws_session:
                     async for chunk in ws_session.tts(
                         request,
-                        text_stream(),
-                        backend=self.model  # モデル指定（s1, speech-1.5, speech-1.6など）
+                        text_stream()
                     ):
                         # チャンクをバッファに追加
                         audio_buffer.extend(chunk)
