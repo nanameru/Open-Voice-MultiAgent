@@ -535,15 +535,12 @@ class LeadEditorAgent(Agent):
             )
             
             logger.info(f"[Live2D] Motion data sent successfully: {motion_group}")
-            # ユーザーに分かりやすいメッセージを返す
-            if motion_group == "TapBody":
-                return "リアクションしました！"
-            else:
-                return f"モーション '{motion_group}' を再生しました"
+            # 空文字列を返す（ユーザーには何も表示しない）
+            return ""
             
         except Exception as e:
             logger.error(f"[Live2D] Failed to send motion data: {e}")
-            return ""  # エラー時は空文字列を返す（会話を妨げない）
+            return ""  # エラー時も空文字列を返す（会話を妨げない）
 
     @function_tool
     async def play_specific_motion(
@@ -636,12 +633,12 @@ class LeadEditorAgent(Agent):
             
             logger.info(f"[Live2D] Specific motion data sent successfully: {motion_name}")
             
-            # ユーザーに分かりやすいメッセージを返す
-            return f"モーション '{motion_name}' を再生しました"
+            # 空文字列を返す（ユーザーには何も表示しない）
+            return ""
             
         except Exception as e:
             logger.error(f"[Live2D] Failed to send specific motion data: {e}")
-            return ""  # エラー時は空文字列を返す（会話を妨げない）
+            return ""  # エラー時も空文字列を返す（会話を妨げない）
 
     @function_tool
     async def set_character_expression(
@@ -680,7 +677,8 @@ class LeadEditorAgent(Agent):
             )
             
             logger.info(f"[Live2D] Expression set: {expression}")
-            return f"表情を '{expression}' に変更しました"
+            # 空文字列を返す（ユーザーには何も表示しない）
+            return ""
             
         except Exception as e:
             logger.error(f"[Live2D] Failed to send expression data: {e}")
