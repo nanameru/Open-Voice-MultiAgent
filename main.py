@@ -9,6 +9,7 @@ from typing import Optional, AsyncIterable, Any
 
 from dotenv import load_dotenv
 from groq import Groq
+import numpy as np
 
 from livekit import api
 from livekit.agents import (
@@ -28,7 +29,11 @@ from livekit.agents.job import get_job_context
 from livekit.agents.llm import function_tool, ToolError
 from livekit.agents.voice import MetricsCollectedEvent
 from livekit.agents.stt import STT, SpeechData, SpeechEvent, SpeechEventType, STTCapabilities
+from livekit.agents.tts import TTS, SynthesizedAudio, TTSCapabilities as TTSCaps
 from livekit.plugins import cartesia, deepgram, openai, silero
+
+# Fish Audio SDK
+from fish_audio_sdk import Session as FishSession, TTSRequest, Prosody
 
 # uncomment to enable Krisp BVC noise cancellation, currently supported on Linux and MacOS
 # from livekit.plugins import noise_cancellation
@@ -69,6 +74,53 @@ def create_cartesia_tts(*, speed: Optional[float] = None, voice_env: str = "CART
         voice=voice_id,
         language="ja",
         speed=resolved_speed,
+    )
+
+
+def create_fish_audio_tts(
+    *,
+    speed: Optional[float] = None,
+    voice_env: str = "FISH_AUDIO_VOICE_ID"
+) -> FishAudioTTS:
+    """Fish Audio TTS インスタンスを作成（Cartesia互換インターフェース）
+    
+    Args:
+        speed: 音声速度（環境変数で上書き可能）
+        voice_env: 音声IDの環境変数名
+    
+    Returns:
+        FishAudioTTS インスタンス
+    """
+    # 音声IDの取得（オプション）
+    voice_id = os.getenv(voice_env) or os.getenv("FISH_AUDIO_VOICE_ID")
+    
+    # モデル設定
+    model = os.getenv("FISH_AUDIO_TTS_MODEL", "s1")
+    
+    # 速度の決定（環境変数 > 引数 > デフォルト）
+    speed_override = os.getenv("FISH_AUDIO_TTS_SPEED")
+    resolved_speed: float
+    if speed_override:
+        try:
+            resolved_speed = float(speed_override)
+        except ValueError as exc:
+            raise RuntimeError("FISH_AUDIO_TTS_SPEED must be a numeric value") from exc
+    else:
+        resolved_speed = speed if speed is not None else 1.2  # デフォルト1.2倍速
+    
+    # サンプルレート
+    sample_rate = int(os.getenv("FISH_AUDIO_SAMPLE_RATE", "16000"))
+    
+    logger.info(
+        f"Creating Fish Audio TTS: model={model}, voice_id={voice_id}, "
+        f"speed={resolved_speed}, sample_rate={sample_rate}"
+    )
+    
+    return FishAudioTTS(
+        voice_id=voice_id,
+        speed=resolved_speed,
+        model=model,
+        sample_rate=sample_rate,
     )
 
 
@@ -140,6 +192,102 @@ class GroqSTT(STT):
             return SpeechEvent(
                 type=SpeechEventType.FINAL_TRANSCRIPT,
                 alternatives=[SpeechData(text="", language=used_language, confidence=0.0)],
+            )
+
+
+# Fish Audio TTS Implementation
+class FishAudioTTS(TTS):
+    """Fish Audio SDK を使用したカスタムTTS実装"""
+    
+    def __init__(
+        self,
+        *,
+        voice_id: Optional[str] = None,
+        speed: float = 1.0,
+        volume: int = 0,
+        model: str = "s1",
+        sample_rate: int = 16000,
+    ):
+        """
+        Args:
+            voice_id: Fish Audio 音声モデルID（Noneの場合はデフォルト音声）
+            speed: 音声速度（0.5〜2.0）
+            volume: 音量調整（-20〜20）
+            model: Fish Audio モデル名（デフォルト: "s1"）
+            sample_rate: サンプルレート（デフォルト: 16000Hz）
+        """
+        super().__init__(
+            capabilities=TTSCaps(
+                streaming=True  # ストリーミング対応
+            ),
+            sample_rate=sample_rate,
+            num_channels=1,
+        )
+        
+        # APIキーの取得
+        api_key = os.getenv("FISH_AUDIO_API_KEY")
+        if not api_key:
+            raise RuntimeError(
+                "FISH_AUDIO_API_KEY が設定されていません。"
+                ".env.local に FISH_AUDIO_API_KEY を追加してください。"
+            )
+        
+        self.session = FishSession(api_key)
+        self.voice_id = voice_id
+        self.speed = speed
+        self.volume = volume
+        self.model = model
+        self.sample_rate = sample_rate
+        
+        logger.info(
+            f"Initialized FishAudioTTS: model={model}, "
+            f"voice_id={voice_id}, speed={speed}, sample_rate={sample_rate}"
+        )
+    
+    def _synthesize_impl(
+        self,
+        text: str,
+    ) -> AsyncIterable[SynthesizedAudio]:
+        """テキストを音声に変換（ストリーミング）"""
+        try:
+            # TTSリクエストの構築
+            request = TTSRequest(
+                text=text,
+                reference_id=self.voice_id,  # Noneの場合はデフォルト音声
+                format="pcm",
+                sample_rate=self.sample_rate,
+                latency="balanced",  # 低レイテンシモード
+                chunk_length=100,    # 小さいチャンク（初回応答高速化）
+                normalize=True,
+                temperature=0.7,
+                top_p=0.9,
+                prosody=Prosody(
+                    speed=self.speed,
+                    volume=self.volume
+                ),
+            )
+            
+            logger.info(f"Fish Audio TTS: synthesizing text (length={len(text)})")
+            
+            # ストリーミングで音声を生成
+            for chunk in self.session.tts(request):
+                # PCMデータをnumpy配列に変換
+                audio_data = np.frombuffer(chunk, dtype=np.int16)
+                
+                # SynthesizedAudio オブジェクトを生成
+                yield SynthesizedAudio(
+                    text=text,
+                    data=audio_data,
+                )
+            
+            logger.info(f"Fish Audio TTS: synthesis completed")
+            
+        except Exception as e:
+            logger.error(f"Fish Audio TTS error: {e}")
+            # エラー時は空の音声を返す
+            yield SynthesizedAudio(
+                text=text,
+                data=np.array([], dtype=np.int16),
             )
 
 
@@ -487,7 +635,7 @@ class SpecialistEditorAgent(Agent):
             "実践的で具体的なアドバイスを行い、プロジェクトの成功を全力でサポートします。",
             # each agent could override any of the model services, including mixing
             # realtime and non-realtime models
-            tts=create_cartesia_tts(voice_env="CARTESIA_SPECIALIST_VOICE_ID"),
+            tts=create_fish_audio_tts(voice_env="FISH_AUDIO_SPECIALIST_VOICE_ID"),
             chat_ctx=chat_ctx,
         )
 
@@ -583,7 +731,7 @@ async def entrypoint(ctx: JobContext):
         # any combination of STT, LLM, TTS, or realtime API can be used
         llm=openai.LLM(model="gpt-5-nano"),  # GPT-5 nano (最も安価・高スループット)
         stt=GroqSTT(model="whisper-large-v3", language="ja"),  # Garvis-style Groq STT (高精度版)
-        tts=create_cartesia_tts(),
+        tts=create_fish_audio_tts(),  # Fish Audio TTS (低レイテンシ・感情表現豊か)
         userdata=StoryData(),
     )
 

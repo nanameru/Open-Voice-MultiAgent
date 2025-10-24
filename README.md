@@ -27,15 +27,24 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-Set up the environment by copying `.env.example` to `.env.local` and filling in the required values:
+Set up the environment by creating `.env.local` file with the required values:
 
-- `LIVEKIT_URL`
-- `LIVEKIT_API_KEY`
-- `LIVEKIT_API_SECRET`
-- `OPENAI_API_KEY`
-- `DEEPGRAM_API_KEY`
+**必須の環境変数:**
+- `LIVEKIT_URL` - LiveKit サーバーのURL
+- `LIVEKIT_API_KEY` - LiveKit APIキー
+- `LIVEKIT_API_SECRET` - LiveKit APIシークレット
+- `OPENAI_API_KEY` - OpenAI APIキー (LLM用)
+- `DEEPGRAM_API_KEY` - Deepgram APIキー
+- `GROQ_API_KEY` - Groq APIキー (STT用)
+- `FISH_AUDIO_API_KEY` - Fish Audio APIキー (TTS用)
 
-You can also do this automatically using the LiveKit CLI:
+**オプションの環境変数:**
+- `FISH_AUDIO_VOICE_ID` - Fish Audio 音声モデルID（[fish.audio/discover](https://fish.audio/discover)から選択）
+- `FISH_AUDIO_SPECIALIST_VOICE_ID` - Specialist Agent用の音声モデルID
+- `FISH_AUDIO_TTS_SPEED` - 音声速度（デフォルト: 1.2）
+- `BRAVE_API_KEY` - Brave Search APIキー（Web検索機能用）
+
+You can also set up LiveKit credentials automatically using the LiveKit CLI:
 
 ```bash
 lk app env
