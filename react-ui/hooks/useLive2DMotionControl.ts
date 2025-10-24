@@ -63,7 +63,7 @@ export function useLive2DMotionControl(
   useDataChannel((message) => {
     console.log('[useLive2DMotionControl] Received data channel message:', {
       payload: message.payload,
-      participant: message.participant,
+      from: message.from?.identity,
     });
     
     try {
