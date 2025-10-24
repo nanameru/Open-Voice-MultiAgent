@@ -33,7 +33,8 @@ from livekit.agents.tts import TTS, SynthesizedAudio, TTSCapabilities as TTSCaps
 from livekit.plugins import cartesia, deepgram, openai, silero
 
 # Fish Audio SDK
-from fish_audio_sdk import Session as FishSession, TTSRequest, Prosody
+from fish_audio_sdk import Session as FishSession, TTSRequest
+from fish_audio_sdk.schemas import Prosody
 
 # uncomment to enable Krisp BVC noise cancellation, currently supported on Linux and MacOS
 # from livekit.plugins import noise_cancellation
