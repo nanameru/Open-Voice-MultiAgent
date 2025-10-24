@@ -289,38 +289,44 @@ export class SimpleLive2DModel extends CubismUserModel {
   private async loadMotions(): Promise<void> {
     if (!this._modelSetting) return;
 
-    // Idleモーションを読み込む
-    const idleMotionCount = this._modelSetting.getMotionCount('Idle');
-    console.log('[SimpleLive2DModel] Loading', idleMotionCount, 'idle motions');
+    // すべてのモーショングループを読み込む
+    const motionGroups = ['Idle', 'TapBody', 'TapHead', 'Shake', 'Flick'];
+    
+    for (const group of motionGroups) {
+      const motionCount = this._modelSetting.getMotionCount(group);
+      if (motionCount === 0) continue;
+      
+      console.log(`[SimpleLive2DModel] Loading ${motionCount} ${group} motions`);
 
-    for (let i = 0; i < idleMotionCount; i++) {
-      const motionFileName = this._modelSetting.getMotionFileName('Idle', i);
-      const name = `Idle_${i}`;
+      for (let i = 0; i < motionCount; i++) {
+        const motionFileName = this._modelSetting.getMotionFileName(group, i);
+        const name = `${group}_${i}`;
 
-      try {
-        const response = await fetch(`${this._modelHomeDir}${motionFileName}`);
-        const arrayBuffer = await response.arrayBuffer();
+        try {
+          const response = await fetch(`${this._modelHomeDir}${motionFileName}`);
+          const arrayBuffer = await response.arrayBuffer();
 
-        const motion = CubismMotion.create(arrayBuffer, arrayBuffer.byteLength);
-        if (motion) {
-          const fadeInTime = this._modelSetting.getMotionFadeInTimeValue('Idle', i);
-          const fadeOutTime = this._modelSetting.getMotionFadeOutTimeValue('Idle', i);
+          const motion = CubismMotion.create(arrayBuffer, arrayBuffer.byteLength);
+          if (motion) {
+            const fadeInTime = this._modelSetting.getMotionFadeInTimeValue(group, i);
+            const fadeOutTime = this._modelSetting.getMotionFadeOutTimeValue(group, i);
 
-          if (fadeInTime !== -1.0) {
-            motion.setFadeInTime(fadeInTime);
+            if (fadeInTime !== -1.0) {
+              motion.setFadeInTime(fadeInTime);
+            }
+            if (fadeOutTime !== -1.0) {
+              motion.setFadeOutTime(fadeOutTime);
+            }
+
+            // まばたき・リップシンクのIDを設定
+            motion.setEffectIds(this._eyeBlinkIds, this._lipSyncIds);
+
+            this._motions.setValue(name, motion);
+            console.log('[SimpleLive2DModel] Motion loaded:', name);
           }
-          if (fadeOutTime !== -1.0) {
-            motion.setFadeOutTime(fadeOutTime);
-          }
-
-          // まばたき・リップシンクのIDを設定
-          motion.setEffectIds(this._eyeBlinkIds, this._lipSyncIds);
-
-          this._motions.setValue(name, motion);
-          console.log('[SimpleLive2DModel] Motion loaded:', name);
+        } catch (error) {
+          console.warn('[SimpleLive2DModel] Failed to load motion:', name, error);
         }
-      } catch (error) {
-        console.warn('[SimpleLive2DModel] Failed to load motion:', name, error);
       }
     }
   }
