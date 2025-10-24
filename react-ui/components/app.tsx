@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Room, RoomEvent } from 'livekit-client';
 import { motion } from 'motion/react';
-import { RoomAudioRenderer, RoomContext, StartAudio } from '@livekit/components-react';
+import { LiveKitRoom, RoomAudioRenderer, StartAudio } from '@livekit/components-react';
 import { toastAlert } from '@/components/alert-toast';
 import { SessionView } from '@/components/session-view';
 import { Toaster } from '@/components/ui/sonner';
@@ -21,6 +21,10 @@ interface AppProps {
 export function App({ appConfig }: AppProps) {
   const room = useMemo(() => new Room(), []);
   const [sessionStarted, setSessionStarted] = useState(false);
+  const [connectionDetails, setConnectionDetails] = useState<{
+    serverUrl: string;
+    participantToken: string;
+  } | null>(null);
   const { refreshConnectionDetails, existingOrRefreshConnectionDetails } =
     useConnectionDetails(appConfig);
 
@@ -50,9 +54,10 @@ export function App({ appConfig }: AppProps) {
         room.localParticipant.setMicrophoneEnabled(true, undefined, {
           preConnectBuffer: appConfig.isPreConnectBufferEnabled,
         }),
-        existingOrRefreshConnectionDetails().then((connectionDetails) =>
-          room.connect(connectionDetails.serverUrl, connectionDetails.participantToken)
-        ),
+        existingOrRefreshConnectionDetails().then((details) => {
+          setConnectionDetails(details);
+          return room.connect(details.serverUrl, details.participantToken);
+        }),
       ]).catch((error) => {
         if (aborted) {
           // Once the effect has cleaned up after itself, drop any errors
@@ -89,7 +94,14 @@ export function App({ appConfig }: AppProps) {
         transition={{ duration: 0.5, ease: 'linear', delay: sessionStarted ? 0 : 0.5 }}
       />
 
-      <RoomContext.Provider value={room}>
+      <LiveKitRoom
+        serverUrl={connectionDetails?.serverUrl}
+        token={connectionDetails?.participantToken}
+        connect={sessionStarted}
+        audio={true}
+        video={false}
+        room={room}
+      >
         <RoomAudioRenderer />
         <StartAudio label="Start Audio" />
         {/* --- */}
@@ -106,7 +118,7 @@ export function App({ appConfig }: AppProps) {
             delay: sessionStarted ? 0.5 : 0,
           }}
         />
-      </RoomContext.Provider>
+      </LiveKitRoom>
 
       <Toaster />
     </main>
