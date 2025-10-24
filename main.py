@@ -111,7 +111,7 @@ def create_fish_audio_tts(
         except ValueError as exc:
             raise RuntimeError("FISH_AUDIO_TTS_SPEED must be a numeric value") from exc
     else:
-        resolved_speed = speed if speed is not None else 1.5  # デフォルト1.5倍速
+        resolved_speed = speed if speed is not None else 1.0  # デフォルト1.0倍速
     
     # サンプルレート
     sample_rate = int(os.getenv("FISH_AUDIO_SAMPLE_RATE", "16000"))
@@ -278,7 +278,7 @@ class FishAudioTTS(TTS):
                     latency="balanced",  # 低レイテンシモード
                     chunk_length=100,    # 小さいチャンク（初回応答高速化）
                     normalize=True,
-                    temperature=0.7,
+                    temperature=0.9,
                     top_p=0.9,
                     prosody=Prosody(
                         speed=self.speed,
