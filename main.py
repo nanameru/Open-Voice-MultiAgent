@@ -38,7 +38,7 @@ from livekit.rtc import AudioFrame
 from livekit.plugins import cartesia, deepgram, openai, silero
 
 # Fish Audio SDK
-from fish_audio_sdk import WebSocketSession, TTSRequest
+from fish_audio_sdk import Session as FishSession, TTSRequest
 from fish_audio_sdk.schemas import Prosody
 
 # uncomment to enable Krisp BVC noise cancellation, currently supported on Linux and MacOS
@@ -257,7 +257,7 @@ class FishAudioTTS(TTS):
         text: str,
         **kwargs  # LiveKitが渡す追加引数（conn_options等）を受け取る
     ) -> AsyncIterator[AsyncIterator[SynthesizedAudio]]:
-        """テキストを音声に変換（WebSocket 非ストリーミング）
+        """テキストを音声に変換（HTTP API 非ストリーミング）
         
         コンテキストマネージャーとして実装し、AsyncIteratorを返す
         """
@@ -265,13 +265,13 @@ class FishAudioTTS(TTS):
             try:
                 # TTSリクエストの構築
                 request = TTSRequest(
-                    text="",  # WebSocketではテキストを空にする
-                    reference_id=self.voice_id,  # Noneの場合はデフォルト音声
+                    text=text,  # 通常のSessionではテキストを直接指定
+                    reference_id=self.voice_id,  # Voice ID指定
                     format="pcm",
                     sample_rate=self.sample_rate,
-                    latency="balanced",  # 低レイテンシモード
-                    chunk_length=100,    # 小さいチャンク（初回応答高速化）
+                    chunk_length=200,    # チャンクサイズ（100-300）
                     normalize=True,
+                    latency="balanced",  # 通常 or balanced
                     temperature=0.9,
                     top_p=0.9,
                     prosody=Prosody(
@@ -280,28 +280,20 @@ class FishAudioTTS(TTS):
                     ),
                 )
                 
-                logger.info(f"Fish Audio TTS: synthesizing text (length={len(text)}) via WebSocket")
+                logger.info(f"Fish Audio TTS: synthesizing text (length={len(text)}) via HTTP API")
                 
-                # 同期版WebSocketSessionを非同期で実行
+                # 同期版Sessionを非同期で実行
                 def sync_tts():
-                    # WebSocketセッションの作成（同期版）
-                    ws_session = WebSocketSession(self.api_key)
-                    
-                    # テキストストリーミング用のジェネレーター（同期版）
-                    def text_stream():
-                        yield text
+                    # Sessionの作成
+                    session = FishSession(self.api_key)
                     
                     # 全音声データを格納するバッファ
                     audio_buffer = bytearray()
                     
-                    # WebSocketで音声を生成し、全チャンクを収集（同期版）
-                    with ws_session:
-                        for chunk in ws_session.tts(
-                            request,
-                            text_stream()
-                        ):
-                            # チャンクをバッファに追加
-                            audio_buffer.extend(chunk)
+                    # HTTP APIで音声を生成し、全チャンクを収集
+                    for chunk in session.tts(request):
+                        # チャンクをバッファに追加
+                        audio_buffer.extend(chunk)
                     
                     return audio_buffer
                 
@@ -311,7 +303,7 @@ class FishAudioTTS(TTS):
                 # バッファをnumpy配列に変換
                 audio_data = np.frombuffer(audio_buffer, dtype=np.int16)
                 
-                logger.info(f"Fish Audio TTS: WebSocket synthesis completed (samples={len(audio_data)})")
+                logger.info(f"Fish Audio TTS: HTTP API synthesis completed (samples={len(audio_data)})")
                 
                 # AudioFrameオブジェクトを作成
                 audio_frame = AudioFrame(
@@ -328,7 +320,7 @@ class FishAudioTTS(TTS):
                 )
                 
             except Exception as e:
-                logger.error(f"Fish Audio TTS WebSocket error: {e}")
+                logger.error(f"Fish Audio TTS HTTP API error: {e}")
                 # エラー時は空の音声を返す（空のAudioFrame）
                 empty_frame = AudioFrame(
                     data=b"",
