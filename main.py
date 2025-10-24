@@ -276,7 +276,7 @@ class FishAudioTTS(TTS):
                     reference_id=self.voice_id,  # Voice ID指定
                     format="pcm",
                     sample_rate=self.sample_rate,
-                    chunk_length=200,    # チャンクサイズ（100-300）
+                    chunk_length=300,    # チャンクサイズ（100-300）
                     normalize=True,
                     latency="balanced",  # 通常 or balanced
                     temperature=0.9,
