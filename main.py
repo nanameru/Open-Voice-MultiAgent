@@ -520,6 +520,104 @@ class LeadEditorAgent(Agent):
             return ""  # エラー時は空文字列を返す（会話を妨げない）
 
     @function_tool
+    async def play_specific_motion(
+        self,
+        context: RunContext[StoryData],
+        motion_name: str,
+    ) -> str:
+        """Live2Dキャラクターの特定のモーションを再生する。
+        
+        **利用可能なモーション一覧:**
+        
+        1. haru_g_m01 - 照れる、恥ずかしがる動作
+        2. haru_g_m02 - 驚く、びっくりする動作
+        3. haru_g_m03 - 頷く、同意する動作
+        4. haru_g_m04 - 首を振る、否定する動作
+        5. haru_g_m05 - 考える、悩む動作
+        6. haru_g_m06 - 喜ぶ、嬉しがる動作
+        7. haru_g_m07 - 落ち込む、悲しむ動作
+        8. haru_g_m08 - 怒る、不機嫌な動作
+        9. haru_g_m09 - 笑う、楽しむ動作
+        10. haru_g_m10 - 挨拶、手を振る動作
+        11. haru_g_m11 - バイバイ、別れの挨拶
+        12. haru_g_m12 - お辞儀、礼をする動作
+        13. haru_g_m13 - 指差す、案内する動作
+        14. haru_g_m14 - 疑問、首をかしげる動作
+        15. haru_g_m15 - 待機、アイドル動作（自然な呼吸）
+        16. haru_g_m16 - 伸びをする、リラックス
+        17. haru_g_m17 - 眠い、あくびをする動作
+        18. haru_g_m18 - 驚きで後ずさる
+        19. haru_g_m19 - ガッツポーズ、やった！
+        20. haru_g_m20 - 照れ笑い、はにかむ
+        21. haru_g_m21 - ため息、残念がる
+        22. haru_g_m22 - ウィンク、いたずらっぽく
+        23. haru_g_m23 - 考え込む、真剣な表情
+        24. haru_g_m24 - 拍手、喜びを表現
+        25. haru_g_m25 - 振り向く、こちらを見る
+        26. haru_g_m26 - 体を触られて反応
+        
+        **使用例:**
+        - ユーザーが「手を振って」と言った時: haru_g_m10 または haru_g_m11
+        - ユーザーが「笑って」と言った時: haru_g_m09
+        - ユーザーが「照れて」と言った時: haru_g_m01 または haru_g_m20
+        - ユーザーが「喜んで」と言った時: haru_g_m06 または haru_g_m19
+        - ユーザーが「頷いて」と言った時: haru_g_m03
+        - ユーザーが「悲しい」と言った時: haru_g_m07 または haru_g_m21
+        
+        **注意事項:**
+        - ユーザーが具体的なリアクションや感情表現を要求した場合は、このツールを使用してください
+        - 通常の待機状態には play_character_motion の "Idle" を使用してください
+        - 優先度は5（Idleより高い）で自動設定されます
+        
+        Args:
+            motion_name: モーションファイル名 (例: "haru_g_m10")
+        
+        Returns:
+            モーション再生開始のメッセージ
+        """
+        try:
+            # motion_nameの検証（haru_g_m01 ～ haru_g_m26）
+            if not motion_name.startswith("haru_g_m"):
+                return f"無効なモーション名です: {motion_name}"
+            
+            # 番号を取得
+            try:
+                motion_num = int(motion_name.replace("haru_g_m", ""))
+                if motion_num < 1 or motion_num > 26:
+                    return f"モーション番号は1～26の範囲で指定してください: {motion_num}"
+            except ValueError:
+                return f"無効なモーション名です: {motion_name}"
+            
+            # LiveKitのData Channelでフロントエンドに送信
+            job_ctx = get_job_context()
+            
+            # メッセージを構築（action="play_file"で個別ファイルを指定）
+            motion_data = json.dumps({
+                "type": "live2d_motion",
+                "action": "play_file",
+                "motion_file": motion_name,
+                "priority": 5  # Idle (priority=3) より高い優先度
+            })
+            
+            # ルーム内の全参加者にデータ送信
+            logger.info(f"[Live2D] Attempting to send specific motion data: {motion_data}")
+            
+            await job_ctx.room.local_participant.publish_data(
+                motion_data.encode('utf-8'),
+                reliable=True,
+                destination_identities=[]  # 空リスト = 全員に送信
+            )
+            
+            logger.info(f"[Live2D] Specific motion data sent successfully: {motion_name}")
+            
+            # ユーザーに分かりやすいメッセージを返す
+            return f"モーション '{motion_name}' を再生しました"
+            
+        except Exception as e:
+            logger.error(f"[Live2D] Failed to send specific motion data: {e}")
+            return ""  # エラー時は空文字列を返す（会話を妨げない）
+
+    @function_tool
     async def set_character_expression(
         self,
         context: RunContext[StoryData],

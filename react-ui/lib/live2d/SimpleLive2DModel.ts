@@ -475,6 +475,51 @@ export class SimpleLive2DModel extends CubismUserModel {
   }
 
   /**
+   * 指定されたモーションファイルを直接再生
+   * @param motionFileName モーションファイル名（例: "haru_g_m01"）
+   * @param priority 優先度
+   */
+  public async playMotionByFile(motionFileName: string, priority: number): Promise<void> {
+    if (!this._modelSetting) return;
+
+    // .motion3.json を自動的に追加
+    const fullFileName = motionFileName.endsWith('.motion3.json') 
+      ? motionFileName 
+      : `${motionFileName}.motion3.json`;
+
+    // モーションファイルのURLを構築
+    const motionUrl = `${this._modelHomeDir}motions/${fullFileName}`;
+
+    console.log(`[SimpleLive2DModel] Loading motion file: ${motionUrl}`);
+
+    try {
+      const response = await fetch(motionUrl);
+      const arrayBuffer = await response.arrayBuffer();
+
+      const motion = CubismMotion.create(arrayBuffer, arrayBuffer.byteLength);
+      if (!motion) {
+        console.error(`[SimpleLive2DModel] Failed to create motion from: ${motionUrl}`);
+        return;
+      }
+
+      // モーションを再生
+      const motionHandle = this._motionManager.startMotionPriority(
+        motion,
+        false,
+        priority
+      );
+
+      if (motionHandle) {
+        console.log(`[SimpleLive2DModel] Started motion: ${motionFileName} (priority: ${priority})`);
+      } else {
+        console.warn(`[SimpleLive2DModel] Failed to start motion: ${motionFileName}`);
+      }
+    } catch (error) {
+      console.error(`[SimpleLive2DModel] Error loading motion file ${motionUrl}:`, error);
+    }
+  }
+
+  /**
    * ランダムなモーションを開始
    */
   public startRandomMotion(group: string, priority: number): void {

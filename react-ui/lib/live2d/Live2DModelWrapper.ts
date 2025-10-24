@@ -237,6 +237,15 @@ export class Live2DModelWrapper {
   }
 
   /**
+   * 指定されたモーションファイルを直接再生
+   */
+  async playMotionByFile(motionFileName: string, priority: number = 5): Promise<void> {
+    if (this._model) {
+      await this._model.playMotionByFile(motionFileName, priority);
+    }
+  }
+
+  /**
    * リソースを解放
    */
   destroy(): void {

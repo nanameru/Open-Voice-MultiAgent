@@ -40,11 +40,20 @@ export function useLive2DMotionControl(
     // アクションに応じて処理を分岐
     switch (data.action) {
       case 'play':
-        // モーション再生
+        // モーション再生（グループからランダム）
         console.log(`[Live2D] Playing motion: ${data.motion} (priority: ${data.priority || 3})`);
         modelRef.current.startRandomMotion(
           data.motion,  // "Idle", "TapBody" など
           data.priority || 3
+        );
+        break;
+
+      case 'play_file':
+        // モーション再生（ファイル名を直接指定）
+        console.log(`[Live2D] Playing motion file: ${data.motion_file} (priority: ${data.priority || 5})`);
+        modelRef.current.playMotionByFile(
+          data.motion_file,  // "haru_g_m01" など
+          data.priority || 5
         );
         break;
 
