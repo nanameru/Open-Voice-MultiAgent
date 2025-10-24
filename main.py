@@ -6,8 +6,9 @@ import wave
 import os
 import json
 import httpx
+from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
-from typing import Optional, AsyncIterable, Any
+from typing import Optional, AsyncIterable, Any, AsyncIterator
 
 from dotenv import load_dotenv
 from groq import Groq
@@ -248,70 +249,78 @@ class FishAudioTTS(TTS):
             f"voice_id={voice_id}, speed={speed}, sample_rate={sample_rate}"
         )
     
+    @asynccontextmanager
     async def synthesize(
         self,
         text: str,
         **kwargs  # LiveKitが渡す追加引数（conn_options等）を受け取る
-    ) -> SynthesizedAudio:
-        """テキストを音声に変換（WebSocket 非ストリーミング）"""
-        try:
-            # WebSocketセッションの作成
-            ws_session = AsyncWebSocketSession(self.api_key)
-            
-            # テキストストリーミング用のジェネレーター
-            async def text_stream():
-                yield text
-            
-            # TTSリクエストの構築
-            request = TTSRequest(
-                text="",  # WebSocketではテキストを空にする
-                reference_id=self.voice_id,  # Noneの場合はデフォルト音声
-                format="pcm",
-                sample_rate=self.sample_rate,
-                latency="balanced",  # 低レイテンシモード
-                chunk_length=100,    # 小さいチャンク（初回応答高速化）
-                normalize=True,
-                temperature=0.7,
-                top_p=0.9,
-                prosody=Prosody(
-                    speed=self.speed,
-                    volume=self.volume
-                ),
-            )
-            
-            logger.info(f"Fish Audio TTS: synthesizing text (length={len(text)}) via WebSocket")
-            
-            # 全音声データを格納するバッファ
-            audio_buffer = bytearray()
-            
-            # WebSocketで音声を生成し、全チャンクを収集
-            async with ws_session:
-                async for chunk in ws_session.tts(
-                    request,
-                    text_stream(),
-                    backend=self.model  # モデル指定（例: "s1"）
-                ):
-                    # チャンクをバッファに追加
-                    audio_buffer.extend(chunk)
-            
-            # バッファをnumpy配列に変換
-            audio_data = np.frombuffer(audio_buffer, dtype=np.int16)
-            
-            logger.info(f"Fish Audio TTS: WebSocket synthesis completed (samples={len(audio_data)})")
-            
-            # 単一のSynthesizedAudioオブジェクトとして返す
-            return SynthesizedAudio(
-                text=text,
-                data=audio_data,
-            )
-            
-        except Exception as e:
-            logger.error(f"Fish Audio TTS WebSocket error: {e}")
-            # エラー時は空の音声を返す
-            return SynthesizedAudio(
-                text=text,
-                data=np.array([], dtype=np.int16),
-            )
+    ) -> AsyncIterator[AsyncIterator[SynthesizedAudio]]:
+        """テキストを音声に変換（WebSocket 非ストリーミング）
+        
+        コンテキストマネージャーとして実装し、AsyncIteratorを返す
+        """
+        async def _generate() -> AsyncIterator[SynthesizedAudio]:
+            try:
+                # WebSocketセッションの作成
+                ws_session = AsyncWebSocketSession(self.api_key)
+                
+                # テキストストリーミング用のジェネレーター
+                async def text_stream():
+                    yield text
+                
+                # TTSリクエストの構築
+                request = TTSRequest(
+                    text="",  # WebSocketではテキストを空にする
+                    reference_id=self.voice_id,  # Noneの場合はデフォルト音声
+                    format="pcm",
+                    sample_rate=self.sample_rate,
+                    latency="balanced",  # 低レイテンシモード
+                    chunk_length=100,    # 小さいチャンク（初回応答高速化）
+                    normalize=True,
+                    temperature=0.7,
+                    top_p=0.9,
+                    prosody=Prosody(
+                        speed=self.speed,
+                        volume=self.volume
+                    ),
+                )
+                
+                logger.info(f"Fish Audio TTS: synthesizing text (length={len(text)}) via WebSocket")
+                
+                # 全音声データを格納するバッファ
+                audio_buffer = bytearray()
+                
+                # WebSocketで音声を生成し、全チャンクを収集
+                async with ws_session:
+                    async for chunk in ws_session.tts(
+                        request,
+                        text_stream(),
+                        backend=self.model  # モデル指定（例: "s1"）
+                    ):
+                        # チャンクをバッファに追加
+                        audio_buffer.extend(chunk)
+                
+                # バッファをnumpy配列に変換
+                audio_data = np.frombuffer(audio_buffer, dtype=np.int16)
+                
+                logger.info(f"Fish Audio TTS: WebSocket synthesis completed (samples={len(audio_data)})")
+                
+                # 単一のSynthesizedAudioオブジェクトをyield
+                yield SynthesizedAudio(
+                    text=text,
+                    data=audio_data,
+                )
+                
+            except Exception as e:
+                logger.error(f"Fish Audio TTS WebSocket error: {e}")
+                # エラー時は空の音声を返す
+                yield SynthesizedAudio(
+                    text=text,
+                    data=np.array([], dtype=np.int16),
+                )
+        
+        # イテレーターをyield（コンテキストマネージャーとして）
+        yield _generate()
 
 
 common_instructions = (
