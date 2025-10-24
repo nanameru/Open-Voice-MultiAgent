@@ -247,7 +247,7 @@ class FishAudioTTS(TTS):
             f"voice_id={voice_id}, speed={speed}, sample_rate={sample_rate}"
         )
     
-    def _synthesize_impl(
+    async def synthesize(
         self,
         text: str,
     ) -> AsyncIterable[SynthesizedAudio]:
