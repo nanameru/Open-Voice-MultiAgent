@@ -493,7 +493,7 @@ class LeadEditorAgent(Agent):
                 "type": "live2d_motion",
                 "action": "play",
                 "motion": motion_group,
-                "priority": 3
+                "priority": 5  # Idle (priority=3) より高い優先度
             })
             
             # ルーム内の全参加者にデータ送信
