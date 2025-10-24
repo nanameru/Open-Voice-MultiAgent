@@ -35,7 +35,7 @@ from livekit.agents.tts import TTS, SynthesizedAudio, TTSCapabilities as TTSCaps
 from livekit.plugins import cartesia, deepgram, openai, silero
 
 # Fish Audio SDK
-from fish_audio_sdk import Session as FishSession, TTSRequest
+from fish_audio_sdk import AsyncWebSocketSession, TTSRequest
 from fish_audio_sdk.schemas import Prosody
 
 # uncomment to enable Krisp BVC noise cancellation, currently supported on Linux and MacOS
@@ -235,7 +235,8 @@ class FishAudioTTS(TTS):
                 ".env.local に FISH_AUDIO_API_KEY を追加してください。"
             )
         
-        self.session = FishSession(api_key)
+        # WebSocket セッションの作成
+        self.api_key = api_key
         self.voice_id = voice_id
         self.speed = speed
         self.volume = volume
@@ -251,11 +252,18 @@ class FishAudioTTS(TTS):
         self,
         text: str,
     ) -> AsyncIterable[SynthesizedAudio]:
-        """テキストを音声に変換（ストリーミング）"""
+        """テキストを音声に変換（WebSocket ストリーミング）"""
         try:
+            # WebSocketセッションの作成
+            ws_session = AsyncWebSocketSession(self.api_key)
+            
+            # テキストストリーミング用のジェネレーター
+            async def text_stream():
+                yield text
+            
             # TTSリクエストの構築
             request = TTSRequest(
-                text=text,
+                text="",  # WebSocketではテキストを空にする
                 reference_id=self.voice_id,  # Noneの場合はデフォルト音声
                 format="pcm",
                 sample_rate=self.sample_rate,
@@ -270,23 +278,28 @@ class FishAudioTTS(TTS):
                 ),
             )
             
-            logger.info(f"Fish Audio TTS: synthesizing text (length={len(text)})")
+            logger.info(f"Fish Audio TTS: synthesizing text (length={len(text)}) via WebSocket")
             
-            # ストリーミングで音声を生成
-            for chunk in self.session.tts(request):
-                # PCMデータをnumpy配列に変換
-                audio_data = np.frombuffer(chunk, dtype=np.int16)
-                
-                # SynthesizedAudio オブジェクトを生成
-                yield SynthesizedAudio(
-                    text=text,
-                    data=audio_data,
-                )
+            # WebSocketでストリーミング音声を生成
+            async with ws_session:
+                async for chunk in ws_session.tts(
+                    request,
+                    text_stream(),
+                    backend=self.model  # モデル指定（例: "s1"）
+                ):
+                    # PCMデータをnumpy配列に変換
+                    audio_data = np.frombuffer(chunk, dtype=np.int16)
+                    
+                    # SynthesizedAudio オブジェクトを生成
+                    yield SynthesizedAudio(
+                        text=text,
+                        data=audio_data,
+                    )
             
-            logger.info(f"Fish Audio TTS: synthesis completed")
+            logger.info(f"Fish Audio TTS: WebSocket synthesis completed")
             
         except Exception as e:
-            logger.error(f"Fish Audio TTS error: {e}")
+            logger.error(f"Fish Audio TTS WebSocket error: {e}")
             # エラー時は空の音声を返す
             yield SynthesizedAudio(
                 text=text,
