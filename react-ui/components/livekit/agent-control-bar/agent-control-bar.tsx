@@ -102,7 +102,7 @@ export function AgentControlBar({
     <div
       aria-label="Voice assistant controls"
       className={cn(
-        'bg-background border-bg2 dark:border-separator1 flex flex-col rounded-[31px] border p-3 drop-shadow-md/3',
+        'bg-white/10 backdrop-blur-xl border border-white/20 flex flex-col rounded-[31px] p-3 shadow-[0_8px_32px_rgba(0,0,0,0.2)]',
         className
       )}
       {...props}
@@ -111,14 +111,14 @@ export function AgentControlBar({
         <div
           inert={!chatOpen}
           className={cn(
-            'overflow-hidden transition-[height] duration-300 ease-out',
-            chatOpen ? 'h-[57px]' : 'h-0'
+            'transition-[height,opacity] duration-300 ease-out',
+            chatOpen ? 'h-auto opacity-100 mb-3' : 'h-0 opacity-0 overflow-hidden'
           )}
         >
-          <div className="flex h-8 w-full">
+          <div className="flex w-full pb-3">
             <ChatInput onSend={handleSendMessage} disabled={isInputDisabled} className="w-full" />
           </div>
-          <hr className="border-bg2 my-3" />
+          <hr className="border-white/20" />
         </div>
       )}
 
@@ -149,7 +149,7 @@ export function AgentControlBar({
                   ></span>
                 </BarVisualizer>
               </TrackToggle>
-              <hr className="bg-separator1 peer-data-[state=off]/track:bg-separatorSerious relative z-10 -mr-px hidden h-4 w-px md:block" />
+              <hr className="bg-white/30 peer-data-[state=off]/track:bg-destructive-foreground relative z-10 -mr-px hidden h-4 w-px md:block" />
               <DeviceSelect
                 size="sm"
                 kind="audioinput"
@@ -178,7 +178,7 @@ export function AgentControlBar({
                 onPressedChange={cameraToggle.toggle}
                 className="peer/track relative w-auto rounded-r-none pr-3 pl-3 disabled:opacity-100 md:border-r-0 md:pr-2"
               />
-              <hr className="bg-separator1 peer-data-[state=off]/track:bg-separatorSerious relative z-10 -mr-px hidden h-4 w-px md:block" />
+              <hr className="bg-white/30 peer-data-[state=off]/track:bg-destructive-foreground relative z-10 -mr-px hidden h-4 w-px md:block" />
               <DeviceSelect
                 size="sm"
                 kind="videoinput"

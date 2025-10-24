@@ -30,24 +30,26 @@ export function ChatInput({ onSend, className, disabled, ...props }: ChatInputPr
     <form
       {...props}
       onSubmit={handleSubmit}
-      className={cn('flex items-center gap-2 rounded-md pl-1 text-sm', className)}
+      className={cn('flex items-center gap-3 text-sm', className)}
     >
-      <input
-        autoFocus
-        ref={inputRef}
-        type="text"
-        value={message}
-        disabled={disabled}
-        placeholder="Type something..."
-        onChange={(e) => setMessage(e.target.value)}
-        className="flex-1 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-      />
+      <div className="flex-1 flex items-center gap-2 rounded-full bg-white/10 backdrop-blur-xl border border-white/20 px-5 py-2.5 shadow-[0_8px_32px_rgba(0,0,0,0.2)]">
+        <input
+          autoFocus
+          ref={inputRef}
+          type="text"
+          value={message}
+          disabled={disabled}
+          placeholder="なんでも聞いてみて。"
+          onChange={(e) => setMessage(e.target.value)}
+          className="flex-1 bg-transparent text-white placeholder:text-white/40 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+        />
+      </div>
       <Button
         size="sm"
         type="submit"
         variant={isDisabled ? 'secondary' : 'primary'}
         disabled={isDisabled}
-        className="font-mono"
+        className="font-mono flex-shrink-0"
       >
         SEND
       </Button>

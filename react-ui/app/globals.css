@@ -14,9 +14,9 @@
   --fgModerate: #a65006;
   --fgAccent: #002cf2;
 
-  --bg1: #f9f9f6;
-  --bg2: #f3f3f1;
-  --bg3: #e2e2df;
+  --bg1: #1a2f45;
+  --bg2: #253d5a;
+  --bg3: #2c4a65;
   --bgSerious: #fae6e6;
   --bgSerious2: #ffcdc7;
   --bgSuccess: #d1fadf;
@@ -32,8 +32,8 @@
   --separatorAccent: #b3ccff;
 
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  --background: #1a2f45;
+  --foreground: oklch(0.985 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
@@ -204,7 +204,9 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply text-foreground;
+    background: linear-gradient(180deg, #1a2f45 0%, #2c4a65 100%);
+    background-attachment: fixed;
   }
 }
 

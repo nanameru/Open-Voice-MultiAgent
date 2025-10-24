@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 import type { AgentState } from '@livekit/components-react';
 import { Live2DModelWrapper } from '@/lib/live2d/Live2DModelWrapper';
+import { useLive2DMotionControl } from '@/hooks/useLive2DMotionControl';
 import { cn } from '@/lib/utils';
 
 interface Live2DBackgroundProps {
@@ -16,6 +17,9 @@ interface Live2DBackgroundProps {
 export function Live2DBackground({ agentState, className }: Live2DBackgroundProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const modelRef = useRef<Live2DModelWrapper | null>(null);
+
+  // AIエージェントからのモーション制御を有効化
+  useLive2DMotionControl(modelRef);
 
   // モデル初期化
   useEffect(() => {
@@ -90,6 +94,7 @@ export function Live2DBackground({ agentState, className }: Live2DBackgroundProp
         width={800}
         height={1200}
         className="max-h-[80vh]"
+        style={{ background: 'transparent' }}
       />
     </div>
   );

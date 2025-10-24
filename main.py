@@ -182,7 +182,26 @@ class LeadEditorAgent(Agent):
             "ユーザーのニーズを素早く理解し、最適なソリューションを提供します。"
             "会話を通じてユーザーの目標を明確化し、効率的に問題を解決します。"
             "簡潔かつ親しみやすい口調で、プロフェッショナルなサポートを提供してください。"
-            "会話の冒頭では短く自己紹介し、すぐに本題に入ります。",
+            "会話の冒頭では短く自己紹介し、すぐに本題に入ります。"
+            "\n\n## Live2Dキャラクター表現の活用"
+            "\n会話の中で、以下のツールを**必ず積極的に**使用して豊かな表現を行ってください："
+            "\n"
+            "\n### play_character_motion ツールの使用"
+            "\n- **挨拶・別れ・手を振る動作が必要な場面**: 'TapBody' を使用"
+            "\n  * ユーザーが「手を振って」「バイバイ」「こんにちは」などと言ったら**即座に**実行"
+            "\n  * 会話の開始時や終了時にも積極的に使用"
+            "\n- **通常の会話**: 'Idle' を使用（自然な待機動作）"
+            "\n"
+            "\n### set_character_expression ツールの使用"
+            "\n- **嬉しい・楽しい場面**: 'F02' (笑顔)"
+            "\n- **考えている・真剣な場面**: 'F03' (考え中)"
+            "\n- **通常の会話**: 'F01' (通常)"
+            "\n- **驚いた場面**: 'F04' (驚き)"
+            "\n- **悲しい・困った場面**: 'F05' (悲しい)"
+            "\n"
+            "\n**重要**: ユーザーが直接「手を振って」「表情変えて」などの指示をした場合は、"
+            "\n必ず対応するツールを呼び出して実行してください。"
+            "\nこれらのツールは音声と並行して実行されるため、会話を妨げることなく自然な演出が可能です。",
         )
 
     async def on_enter(self):
@@ -246,6 +265,98 @@ class LeadEditorAgent(Agent):
         logger.info(
             "set theme to the story: %s", theme
         )
+
+    @function_tool
+    async def play_character_motion(
+        self,
+        context: RunContext[StoryData],
+        motion_group: str,
+    ) -> str:
+        """Live2Dキャラクターのモーションを再生する。
+        
+        **このツールは以下の場面で必ず使用してください：**
+        1. ユーザーが「手を振って」「バイバイ」「こんにちは」などと言った時
+        2. 会話の開始時や終了時の挨拶
+        3. ユーザーが直接モーションを要求した時
+        
+        使用例:
+        - 挨拶・別れ・手を振る: "TapBody" (手を振る動作) ← ユーザーが「手を振って」と言ったら必ず実行
+        - 通常の会話: "Idle" (自然な待機動作)
+        
+        Args:
+            motion_group: モーショングループ名 ("Idle" または "TapBody")
+        
+        Returns:
+            モーション再生開始のメッセージ
+        """
+        try:
+            # LiveKitのData Channelでフロントエンドに送信
+            job_ctx = get_job_context()
+            
+            # メッセージを構築
+            motion_data = json.dumps({
+                "type": "live2d_motion",
+                "action": "play",
+                "motion": motion_group,
+                "priority": 3
+            })
+            
+            # ルーム内の全参加者にデータ送信
+            await job_ctx.room.local_participant.publish_data(
+                motion_data.encode('utf-8'),
+                reliable=True,
+                destination_identities=None  # 全員に送信
+            )
+            
+            logger.info(f"[Live2D] Motion requested: {motion_group}")
+            return f"モーション '{motion_group}' を再生しました"
+            
+        except Exception as e:
+            logger.error(f"[Live2D] Failed to send motion data: {e}")
+            return ""  # エラー時は空文字列を返す（会話を妨げない）
+
+    @function_tool
+    async def set_character_expression(
+        self,
+        context: RunContext[StoryData],
+        expression: str,
+    ) -> str:
+        """会話の感情や文脈に応じて、Live2Dキャラクターの表情を変更する。
+        このツールは会話の雰囲気に合わせて自然に使用してください。
+        
+        使用例:
+        - 嬉しい・楽しい場面: "F02" (笑顔)
+        - 考えている場面: "F03" (考え中の表情)
+        - 通常の会話: "F01" (通常の表情)
+        - 驚いた場面: "F04" (驚き)
+        - 悲しい・困った場面: "F05" (悲しい表情)
+        
+        Args:
+            expression: 表情名 ("F01", "F02", "F03", "F04", "F05", "F06", "F07", "F08")
+        
+        Returns:
+            表情変更のメッセージ
+        """
+        try:
+            job_ctx = get_job_context()
+            
+            expression_data = json.dumps({
+                "type": "live2d_motion",
+                "action": "expression",
+                "name": expression
+            })
+            
+            await job_ctx.room.local_participant.publish_data(
+                expression_data.encode('utf-8'),
+                reliable=True
+            )
+            
+            logger.info(f"[Live2D] Expression set: {expression}")
+            return f"表情を '{expression}' に変更しました"
+            
+        except Exception as e:
+            logger.error(f"[Live2D] Failed to send expression data: {e}")
+            return ""  # エラー時は空文字列を返す（会話を妨げない）
 
     @function_tool
     async def web_search(

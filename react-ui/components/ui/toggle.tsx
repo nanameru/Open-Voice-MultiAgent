@@ -20,14 +20,14 @@ const toggleVariants = cva(
     variants: {
       variant: {
         default:
-          'bg-button hover:bg-muted focus:bg-muted hover:text-muted-foreground focus:text-muted-foreground',
+          'bg-white/10 backdrop-blur-xl border border-white/20 text-white hover:bg-white/15 focus:bg-white/15 shadow-[0_8px_32px_rgba(0,0,0,0.2)]',
         primary:
-          'text-fg1 bg-button hover:bg-button-hover focus:bg-button-hover data-[state=off]:bg-button-primary hover:data-[state=off]:bg-button-hover data-[state=off]:text-button-primary-foreground',
+          'text-white bg-white/10 backdrop-blur-xl border border-white/20 hover:bg-white/15 focus:bg-white/15 shadow-[0_8px_32px_rgba(0,0,0,0.2)] data-[state=off]:bg-rose-500/25 hover:data-[state=off]:bg-rose-500/35 data-[state=off]:text-rose-100 data-[state=off]:border-rose-400/30 data-[state=off]:shadow-[0_8px_32px_rgba(251,113,133,0.25)]',
         secondary:
-          'text-fg1 bg-button hover:bg-button-hover focus:bg-button-hover data-[state=on]:bg-button-secondary hover:data-[state=on]:bg-button-secondary data-[state=on]:text-button-secondary-foreground',
+          'text-white bg-white/10 backdrop-blur-xl border border-white/20 hover:bg-white/15 focus:bg-white/15 shadow-[0_8px_32px_rgba(0,0,0,0.2)] data-[state=on]:bg-cyan-500/25 hover:data-[state=on]:bg-cyan-500/35 data-[state=on]:text-cyan-50 data-[state=on]:border-cyan-400/30 data-[state=on]:shadow-[0_8px_32px_rgba(34,211,238,0.25)]',
         outline: [
-          'border border-button-border bg-button text-button-foreground',
-          'hover:bg-background focus:bg-background',
+          'border border-white/20 bg-transparent backdrop-blur-xl text-white shadow-[0_8px_32px_rgba(0,0,0,0.2)]',
+          'hover:bg-white/10 focus:bg-white/10',
         ],
       },
       size: {

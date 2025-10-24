@@ -1,0 +1,80 @@
+'use client';
+
+import { useDataChannel } from '@livekit/components-react';
+import { useRef, useCallback } from 'react';
+import type { Live2DModelWrapper } from '@/lib/live2d/Live2DModelWrapper';
+
+/**
+ * Live2Dキャラクターのモーションと表情をAIエージェントから制御するフック
+ * 
+ * バックエンドのLiveKit Agentから送信されるData Channelメッセージを受信し、
+ * Live2Dモデルのモーション再生や表情変更を実行します。
+ * 
+ * @param modelRef - Live2DModelWrapper のリファレンス
+ */
+export function useLive2DMotionControl(
+  modelRef: React.MutableRefObject<Live2DModelWrapper | null>
+) {
+  const lastProcessedTimestamp = useRef<number>(0);
+
+  const handleMotionMessage = useCallback((data: any) => {
+    // メッセージタイプを確認
+    if (data.type !== 'live2d_motion') {
+      return;
+    }
+
+    // モデルが初期化されているか確認
+    if (!modelRef.current) {
+      console.warn('[useLive2DMotionControl] Model not ready');
+      return;
+    }
+
+    // 重複メッセージの防止（タイムスタンプベース）
+    const now = Date.now();
+    if (now - lastProcessedTimestamp.current < 100) {
+      // 100ms以内の重複メッセージは無視
+      return;
+    }
+    lastProcessedTimestamp.current = now;
+
+    // アクションに応じて処理を分岐
+    switch (data.action) {
+      case 'play':
+        // モーション再生
+        console.log(`[Live2D] Playing motion: ${data.motion} (priority: ${data.priority || 3})`);
+        modelRef.current.startRandomMotion(
+          data.motion,  // "Idle", "TapBody" など
+          data.priority || 3
+        );
+        break;
+
+      case 'expression':
+        // 表情変更
+        console.log(`[Live2D] Setting expression: ${data.name}`);
+        modelRef.current.setExpression(data.name);
+        break;
+
+      default:
+        console.warn(`[Live2D] Unknown action: ${data.action}`);
+    }
+  }, [modelRef]);
+
+  // LiveKitのData Channelからメッセージを受信
+  useDataChannel((message) => {
+    try {
+      // バイナリデータをテキストにデコード
+      const decoder = new TextDecoder();
+      const text = decoder.decode(message.payload);
+      
+      // JSONをパース
+      const data = JSON.parse(text);
+      
+      // モーションメッセージを処理
+      handleMotionMessage(data);
+    } catch (error) {
+      // パースエラーは無視（他のData Channelメッセージの可能性）
+      // console.debug('[useLive2DMotionControl] Failed to parse message:', error);
+    }
+  });
+}
+

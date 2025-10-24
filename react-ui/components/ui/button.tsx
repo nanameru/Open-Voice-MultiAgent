@@ -15,21 +15,21 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: 'bg-button text-button-foreground hover:bg-muted focus:bg-muted',
+        default: 'bg-white/10 backdrop-blur-xl border border-white/20 text-white hover:bg-white/15 focus:bg-white/15 shadow-[0_8px_32px_rgba(0,0,0,0.2)]',
         destructive: [
-          'bg-destructive text-destructive-foreground',
-          'hover:bg-destructive-hover focus:bg-destructive-hover focus-visible:ring-destructive-foreground/20',
-          'dark:focus-visible:ring-destructive-foreground/40',
+          'bg-rose-500/25 backdrop-blur-xl border border-rose-400/30 text-rose-100 shadow-[0_8px_32px_rgba(251,113,133,0.25)]',
+          'hover:bg-rose-500/35 focus:bg-rose-500/35 focus-visible:ring-rose-400/20',
+          'dark:focus-visible:ring-rose-400/30',
         ],
         outline: [
-          'border bg-background',
-          'hover:bg-accent hover:text-accent-foreground',
-          'dark:bg-input/30 dark:border-input dark:hover:bg-input/50',
+          'border border-white/20 bg-transparent backdrop-blur-xl text-white shadow-[0_8px_32px_rgba(0,0,0,0.2)]',
+          'hover:bg-white/10 hover:text-white',
+          'dark:bg-white/5 dark:border-white/20 dark:hover:bg-white/10',
         ],
-        primary: 'bg-primary text-primary-foreground hover:bg-primary-hover focus:bg-primary-hover',
-        secondary: 'bg-secondary text-secondary-foregroun hover:bg-secondary/80',
-        ghost: 'hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50',
-        link: 'text-primary underline-offset-4 hover:underline',
+        primary: 'bg-cyan-500/25 backdrop-blur-xl border border-cyan-400/30 text-cyan-50 hover:bg-cyan-500/35 focus:bg-cyan-500/35 shadow-[0_8px_32px_rgba(34,211,238,0.25)]',
+        secondary: 'bg-slate-500/15 backdrop-blur-xl border border-slate-400/25 text-slate-100 hover:bg-slate-500/25 shadow-[0_8px_32px_rgba(100,116,139,0.2)]',
+        ghost: 'hover:bg-white/10 hover:text-white dark:hover:bg-white/10',
+        link: 'text-blue-300 underline-offset-4 hover:underline',
       },
       size: {
         default: 'h-9 px-4 py-2 has-[>svg]:px-3',
