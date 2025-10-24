@@ -305,9 +305,10 @@ class FishAudioTTS(TTS):
                 
                 logger.info(f"Fish Audio TTS: WebSocket synthesis completed (samples={len(audio_data)})")
                 
-                # 単一のSynthesizedAudioオブジェクトをyield（textパラメータは不要）
+                # 単一のSynthesizedAudioオブジェクトをyield
                 yield SynthesizedAudio(
                     frame=audio_data,
+                    request_id="",  # 空の文字列でOK
                 )
                 
             except Exception as e:
@@ -315,6 +316,7 @@ class FishAudioTTS(TTS):
                 # エラー時は空の音声を返す
                 yield SynthesizedAudio(
                     frame=np.array([], dtype=np.int16),
+                    request_id="",
                 )
         
         # イテレーターをyield（コンテキストマネージャーとして）
