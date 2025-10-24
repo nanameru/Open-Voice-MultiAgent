@@ -221,7 +221,7 @@ class FishAudioTTS(TTS):
         """
         super().__init__(
             capabilities=TTSCaps(
-                streaming=True  # ストリーミング対応
+                streaming=False  # 非ストリーミングモード
             ),
             sample_rate=sample_rate,
             num_channels=1,
@@ -251,8 +251,8 @@ class FishAudioTTS(TTS):
     async def synthesize(
         self,
         text: str,
-    ) -> AsyncIterable[SynthesizedAudio]:
-        """テキストを音声に変換（WebSocket ストリーミング）"""
+    ) -> SynthesizedAudio:
+        """テキストを音声に変換（WebSocket 非ストリーミング）"""
         try:
             # WebSocketセッションの作成
             ws_session = AsyncWebSocketSession(self.api_key)
@@ -280,28 +280,34 @@ class FishAudioTTS(TTS):
             
             logger.info(f"Fish Audio TTS: synthesizing text (length={len(text)}) via WebSocket")
             
-            # WebSocketでストリーミング音声を生成
+            # 全音声データを格納するバッファ
+            audio_buffer = bytearray()
+            
+            # WebSocketで音声を生成し、全チャンクを収集
             async with ws_session:
                 async for chunk in ws_session.tts(
                     request,
                     text_stream(),
                     backend=self.model  # モデル指定（例: "s1"）
                 ):
-                    # PCMデータをnumpy配列に変換
-                    audio_data = np.frombuffer(chunk, dtype=np.int16)
-                    
-                    # SynthesizedAudio オブジェクトを生成
-                    yield SynthesizedAudio(
-                        text=text,
-                        data=audio_data,
-                    )
+                    # チャンクをバッファに追加
+                    audio_buffer.extend(chunk)
             
-            logger.info(f"Fish Audio TTS: WebSocket synthesis completed")
+            # バッファをnumpy配列に変換
+            audio_data = np.frombuffer(audio_buffer, dtype=np.int16)
+            
+            logger.info(f"Fish Audio TTS: WebSocket synthesis completed (samples={len(audio_data)})")
+            
+            # 単一のSynthesizedAudioオブジェクトとして返す
+            return SynthesizedAudio(
+                text=text,
+                data=audio_data,
+            )
             
         except Exception as e:
             logger.error(f"Fish Audio TTS WebSocket error: {e}")
             # エラー時は空の音声を返す
-            yield SynthesizedAudio(
+            return SynthesizedAudio(
                 text=text,
                 data=np.array([], dtype=np.int16),
             )
