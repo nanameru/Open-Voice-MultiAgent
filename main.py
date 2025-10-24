@@ -115,7 +115,7 @@ def create_fish_audio_tts(
         resolved_speed = speed if speed is not None else 2.0  # デフォルト2.0倍速
     
     # サンプルレート
-    sample_rate = int(os.getenv("FISH_AUDIO_SAMPLE_RATE", "16000"))
+    sample_rate = int(os.getenv("FISH_AUDIO_SAMPLE_RATE", "44100"))
     
     logger.info(
         f"Creating Fish Audio TTS: model={model}, voice_id={voice_id}, "
