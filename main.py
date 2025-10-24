@@ -115,7 +115,7 @@ def create_fish_audio_tts(
         resolved_speed = speed if speed is not None else 1.4  # デフォルト1.4倍速
     
     # サンプルレート
-    sample_rate = int(os.getenv("FISH_AUDIO_SAMPLE_RATE", "32000"))
+    sample_rate = int(os.getenv("FISH_AUDIO_SAMPLE_RATE", "44100"))
     
     logger.info(
         f"Creating Fish Audio TTS: model={model}, voice_id={voice_id}, "
@@ -276,7 +276,7 @@ class FishAudioTTS(TTS):
                     reference_id=self.voice_id,  # Voice ID指定
                     format="pcm",
                     sample_rate=self.sample_rate,
-                    chunk_length=200,    # チャンクサイズ（100-300）
+                    chunk_length=300,    # チャンクサイズ（100-300）
                     normalize=True,
                     latency="balanced",  # 通常 or balanced
                     temperature=0.9,
