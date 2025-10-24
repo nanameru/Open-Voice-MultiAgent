@@ -39,8 +39,16 @@ export class Live2DModelWrapper {
 
     try {
       const cubismOption: Option = {
-        logFunction: (message: string) => console.log('[Live2D]', message),
-        loggingLevel: 0, // LogLevel.Verbose
+        logFunction: (message: string) => {
+          // エラーのみログ出力（警告とエラー以外は抑制）
+          if (message.includes('[E]') || message.includes('Error')) {
+            // NoPremultipliedAlphaエラーは無視（既知の問題）
+            if (!message.includes('NoPremultipliedAlpha')) {
+              console.error('[Live2D]', message);
+            }
+          }
+        },
+        loggingLevel: 2, // LogLevel.Error（エラーのみ）
       };
 
       CubismFramework.startUp(cubismOption);
@@ -205,11 +213,6 @@ export class Live2DModelWrapper {
 
     // モデル描画
     this._model.draw(this._projection);
-
-    // デバッグ: 最初の数フレームだけログ出力
-    if (deltaTime > 0 && now - this._lastUpdateTime + deltaTime * 1000 < 2000) {
-      console.log('[Live2DModelWrapper] Rendered frame, deltaTime:', deltaTime.toFixed(3));
-    }
 
     // 次のフレームをリクエスト
     this._animationId = requestAnimationFrame(this.renderLoop);
