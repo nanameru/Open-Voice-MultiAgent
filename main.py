@@ -500,7 +500,7 @@ class LeadEditorAgent(Agent):
             await job_ctx.room.local_participant.publish_data(
                 motion_data.encode('utf-8'),
                 reliable=True,
-                destination_identities=None  # 全員に送信
+                destination_identities=[]  # 空リスト = 全員に送信
             )
             
             logger.info(f"[Live2D] Motion requested: {motion_group}")
