@@ -240,7 +240,7 @@ class FishAudioTTS(TTS):
         self.speed = speed
         self.volume = volume
         self.model = model
-        self.sample_rate = sample_rate
+        # sample_rate は親クラスで設定済み（self.sample_rate で参照可能）
         
         logger.info(
             f"Initialized FishAudioTTS: model={model}, "
