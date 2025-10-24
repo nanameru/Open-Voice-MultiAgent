@@ -251,6 +251,7 @@ class FishAudioTTS(TTS):
     async def synthesize(
         self,
         text: str,
+        **kwargs  # LiveKitが渡す追加引数（conn_options等）を受け取る
     ) -> SynthesizedAudio:
         """テキストを音声に変換（WebSocket 非ストリーミング）"""
         try:
