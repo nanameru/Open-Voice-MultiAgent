@@ -497,13 +497,15 @@ class LeadEditorAgent(Agent):
             })
             
             # ルーム内の全参加者にデータ送信
+            logger.info(f"[Live2D] Attempting to send motion data: {motion_data}")
+            
             await job_ctx.room.local_participant.publish_data(
                 motion_data.encode('utf-8'),
                 reliable=True,
                 destination_identities=[]  # 空リスト = 全員に送信
             )
             
-            logger.info(f"[Live2D] Motion requested: {motion_group}")
+            logger.info(f"[Live2D] Motion data sent successfully: {motion_group}")
             return f"モーション '{motion_group}' を再生しました"
             
         except Exception as e:

@@ -61,19 +61,26 @@ export function useLive2DMotionControl(
 
   // LiveKitのData Channelからメッセージを受信
   useDataChannel((message) => {
+    console.log('[useLive2DMotionControl] Received data channel message:', {
+      payload: message.payload,
+      participant: message.participant,
+    });
+    
     try {
       // バイナリデータをテキストにデコード
       const decoder = new TextDecoder();
       const text = decoder.decode(message.payload);
+      console.log('[useLive2DMotionControl] Decoded text:', text);
       
       // JSONをパース
       const data = JSON.parse(text);
+      console.log('[useLive2DMotionControl] Parsed JSON:', data);
       
       // モーションメッセージを処理
       handleMotionMessage(data);
     } catch (error) {
       // パースエラーは無視（他のData Channelメッセージの可能性）
-      // console.debug('[useLive2DMotionControl] Failed to parse message:', error);
+      console.debug('[useLive2DMotionControl] Failed to parse message:', error);
     }
   });
 }
