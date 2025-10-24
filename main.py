@@ -33,6 +33,7 @@ from livekit.agents.llm import function_tool, ToolError
 from livekit.agents.voice import MetricsCollectedEvent
 from livekit.agents.stt import STT, SpeechData, SpeechEvent, SpeechEventType, STTCapabilities
 from livekit.agents.tts import TTS, SynthesizedAudio, TTSCapabilities as TTSCaps
+from livekit.rtc import AudioFrame
 from livekit.plugins import cartesia, deepgram, openai, silero
 
 # Fish Audio SDK
@@ -305,17 +306,31 @@ class FishAudioTTS(TTS):
                 
                 logger.info(f"Fish Audio TTS: WebSocket synthesis completed (samples={len(audio_data)})")
                 
+                # AudioFrameオブジェクトを作成
+                audio_frame = AudioFrame(
+                    data=audio_data.tobytes(),
+                    sample_rate=self.sample_rate,
+                    num_channels=self.num_channels,
+                    samples_per_channel=len(audio_data) // self.num_channels,
+                )
+                
                 # 単一のSynthesizedAudioオブジェクトをyield
                 yield SynthesizedAudio(
-                    frame=audio_data,
-                    request_id="",  # 空の文字列でOK
+                    frame=audio_frame,
+                    request_id="",
                 )
                 
             except Exception as e:
                 logger.error(f"Fish Audio TTS WebSocket error: {e}")
-                # エラー時は空の音声を返す
+                # エラー時は空の音声を返す（空のAudioFrame）
+                empty_frame = AudioFrame(
+                    data=b"",
+                    sample_rate=self.sample_rate,
+                    num_channels=self.num_channels,
+                    samples_per_channel=0,
+                )
                 yield SynthesizedAudio(
-                    frame=np.array([], dtype=np.int16),
+                    frame=empty_frame,
                     request_id="",
                 )
         
