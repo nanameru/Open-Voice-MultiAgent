@@ -41,6 +41,10 @@ export class SimpleLive2DModel extends CubismUserModel {
   private _userTimeSeconds: number = 0.0;
   private _textures: WebGLTexture[] = [];
   private _gl: WebGLRenderingContext | null = null;
+  
+  // モーション管理用（アイドルモーション遅延制御）
+  private _lastMotionTime: number = 0.0;
+  private _idleDelay: number = 3.0; // アイドルモーション再生までの遅延（秒）
 
   // モーション・表情管理（基底クラスの_motionManagerは使用）
   private _expressions: csmMap<string, CubismExpressionMotion> = new csmMap();
@@ -436,8 +440,12 @@ export class SimpleLive2DModel extends CubismUserModel {
     let motionUpdated = false;
 
     if (this._motionManager.isFinished()) {
-      // 待機モーションをランダムで再生
-      this.startRandomMotion('Idle', 3);
+      // 最後のモーション実行から一定時間経過後のみアイドルモーションを再生
+      const timeSinceLastMotion = this._userTimeSeconds - this._lastMotionTime;
+      if (timeSinceLastMotion >= this._idleDelay) {
+        // 待機モーションをランダムで再生（遅延時間経過後）
+        this.startRandomMotion('Idle', 3);
+      }
     } else {
       motionUpdated = this._motionManager.updateMotion(this._model, deltaTimeSeconds);
     }
@@ -518,6 +526,10 @@ export class SimpleLive2DModel extends CubismUserModel {
 
       if (motionHandle) {
         console.log(`[SimpleLive2DModel] Started motion: ${motionFileName} (priority: ${priority})`);
+        // 優先度の高いモーション（priority >= 5）の場合、最後の実行時刻を更新
+        if (priority >= 5) {
+          this._lastMotionTime = this._userTimeSeconds;
+        }
       } else {
         console.warn(`[SimpleLive2DModel] Failed to start motion: ${motionFileName}`);
       }
@@ -542,6 +554,11 @@ export class SimpleLive2DModel extends CubismUserModel {
     if (motion) {
       this._motionManager.startMotionPriority(motion, false, priority);
       console.log('[SimpleLive2DModel] Started motion:', name);
+      
+      // Idle以外のモーションの場合、最後の実行時刻を更新
+      if (group !== 'Idle' && priority >= 5) {
+        this._lastMotionTime = this._userTimeSeconds;
+      }
     }
   }
 
