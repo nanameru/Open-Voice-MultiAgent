@@ -596,7 +596,7 @@ class LeadEditorAgent(Agent):
         self,
         context: RunContext[StoryData],
         motion_group: str,
-    ) -> str:
+    ) -> None:
         """Live2Dキャラクターのモーショングループを再生する（ランダム）。
         
         **⚠️ 重要: ユーザーが具体的な動作（「照れて」「手を振って」「笑って」など）を要求した場合は、
@@ -611,7 +611,7 @@ class LeadEditorAgent(Agent):
             motion_group: モーショングループ名 ("Idle" または "TapBody")
         
         Returns:
-            モーション再生開始のメッセージ
+            None - ツールは静かに実行され、LLMに応答生成を要求しません
         """
         try:
             # LiveKitのData Channelでフロントエンドに送信
@@ -635,19 +635,19 @@ class LeadEditorAgent(Agent):
             )
             
             logger.info(f"[Live2D] Motion data sent successfully: {motion_group}")
-            # 空文字列を返す（ユーザーには何も表示しない）
-            return ""
+            # 何も返さない = LLMに応答生成を要求しない（ツールは静かに実行される）
+            return
             
         except Exception as e:
             logger.error(f"[Live2D] Failed to send motion data: {e}")
-            return ""  # エラー時も空文字列を返す（会話を妨げない）
+            return  # エラー時も何も返さない（会話を妨げない）
 
     @function_tool
     async def play_specific_motion(
         self,
         context: RunContext[StoryData],
         motion_name: str,
-    ) -> str:
+    ) -> None:
         """Live2Dキャラクターの特定のモーションを再生する。
         
         **利用可能なモーション一覧:**
@@ -696,20 +696,20 @@ class LeadEditorAgent(Agent):
             motion_name: モーションファイル名 (例: "haru_g_m10")
         
         Returns:
-            モーション再生開始のメッセージ
+            None - ツールは静かに実行され、LLMに応答生成を要求しません
         """
         try:
             # motion_nameの検証（haru_g_m01 ～ haru_g_m26）
             if not motion_name.startswith("haru_g_m"):
-                return f"無効なモーション名です: {motion_name}"
+                raise ToolError(f"無効なモーション名です: {motion_name}")
             
             # 番号を取得
             try:
                 motion_num = int(motion_name.replace("haru_g_m", ""))
                 if motion_num < 1 or motion_num > 26:
-                    return f"モーション番号は1～26の範囲で指定してください: {motion_num}"
+                    raise ToolError(f"モーション番号は1～26の範囲で指定してください: {motion_num}")
             except ValueError:
-                return f"無効なモーション名です: {motion_name}"
+                raise ToolError(f"無効なモーション名です: {motion_name}")
             
             # LiveKitのData Channelでフロントエンドに送信
             job_ctx = get_job_context()
@@ -733,19 +733,19 @@ class LeadEditorAgent(Agent):
             
             logger.info(f"[Live2D] Specific motion data sent successfully: {motion_name}")
             
-            # 空文字列を返す（ユーザーには何も表示しない）
-            return ""
+            # 何も返さない = LLMに応答生成を要求しない（ツールは静かに実行される）
+            return
             
         except Exception as e:
             logger.error(f"[Live2D] Failed to send specific motion data: {e}")
-            return ""  # エラー時も空文字列を返す（会話を妨げない）
+            return  # エラー時も何も返さない（会話を妨げない）
 
     @function_tool
     async def set_character_expression(
         self,
         context: RunContext[StoryData],
         expression: str,
-    ) -> str:
+    ) -> None:
         """会話の感情や文脈に応じて、Live2Dキャラクターの表情を変更する。
         このツールは会話の雰囲気に合わせて自然に使用してください。
         
@@ -760,7 +760,7 @@ class LeadEditorAgent(Agent):
             expression: 表情名 ("F01", "F02", "F03", "F04", "F05", "F06", "F07", "F08")
         
         Returns:
-            表情変更のメッセージ
+            None - ツールは静かに実行され、LLMに応答生成を要求しません
         """
         try:
             job_ctx = get_job_context()
@@ -777,12 +777,12 @@ class LeadEditorAgent(Agent):
             )
             
             logger.info(f"[Live2D] Expression set: {expression}")
-            # 空文字列を返す（ユーザーには何も表示しない）
-            return ""
+            # 何も返さない = LLMに応答生成を要求しない（ツールは静かに実行される）
+            return
             
         except Exception as e:
             logger.error(f"[Live2D] Failed to send expression data: {e}")
-            return ""  # エラー時は空文字列を返す（会話を妨げない）
+            return  # エラー時も何も返さない（会話を妨げない）
 
     @function_tool
     async def web_search(
