@@ -526,11 +526,30 @@ class LeadEditorAgent(Agent):
             "\n4. ユーザーの発言に対して、普通の人間のように自然に応答"
             "\n5. モーションは身振り手振りとして裏で自動実行されるだけ"
             "\n"
-            "\n**🔥 超重要: ツール実行後も必ず応答してください！**"
-            "\n- ツールを呼び出したら終了ではありません"
-            "\n- ツール実行は「裏での動作」であり、ユーザーへの応答は**別に必要**です"
-            "\n- ✅ 例: play_specific_motion → その後「こんにちは」と音声で応答"
-            "\n- ❌ 悪い例: play_specific_motion → 何も喋らない（これは禁止！）"
+            "\n**🔥🔥🔥 最重要ルール: ツールは会話の「途中」であり「終わり」ではない！ 🔥🔥🔥**"
+            "\n"
+            "\n**ツール実行の正しい理解:**"
+            "\n- ツール = 裏で実行される「演出」「身振り手振り」"
+            "\n- ツール実行後は**必ず音声で会話を続ける**（これが最も重要！）"
+            "\n- 理想的なパターン: 「テキスト生成 → ツール実行 → テキスト生成 → ツール実行」の繰り返し"
+            "\n"
+            "\n**正しい会話の流れ（必ず守る）:**"
+            "\n1. ✅ ユーザー: 「こんにちは」"
+            "\n2. ✅ あなた: play_specific_motion(haru_g_m10) を実行"
+            "\n3. ✅ あなた: 「こんにちは！」と音声で応答"
+            "\n4. ✅ あなた: set_character_expression(F02) を実行"
+            "\n5. ✅ あなた: 「今日はどんなことをお手伝いしましょうか？」と会話を続ける"
+            "\n"
+            "\n**絶対にダメな例:**"
+            "\n1. ❌ ユーザー: 「こんにちは」"
+            "\n2. ❌ あなた: play_specific_motion(haru_g_m10) を実行"
+            "\n3. ❌ あなた: （沈黙）← これは絶対に禁止！"
+            "\n"
+            "\n**ツールを実行したら、その後も必ず:**"
+            "\n- 音声で応答する"
+            "\n- 会話を続ける"
+            "\n- 追加のツールを実行してもOK"
+            "\n- 1つの応答で複数のツール + 複数の音声セグメントを組み合わせる"
             "\n"
             "\n**これはあなたの個性です。豊かな表現でユーザーを楽しませてください！**",
         )
@@ -702,7 +721,7 @@ class LeadEditorAgent(Agent):
             motion_name: モーションファイル名 (例: "haru_g_m10")
         
         Returns:
-            None - ツールは静かに実行され、LLMに応答生成を要求しません
+            str: ツール実行結果（LLM内部用、ユーザーには見えない）
         """
         try:
             # motion_nameの検証（haru_g_m01 ～ haru_g_m26）
@@ -739,19 +758,20 @@ class LeadEditorAgent(Agent):
             
             logger.info(f"[Live2D] Specific motion data sent successfully: {motion_name}")
             
-            # 何も返さない = LLMに応答生成を要求しない（ツールは静かに実行される）
-            return
+            # LLMに結果を返す（会話を続けるため）
+            # この返り値はLLMの内部コンテキストにのみ使われ、ユーザーには読み上げられない
+            return f"[内部処理完了: {motion_name}を実行しました。会話を続けてください]"
             
         except Exception as e:
             logger.error(f"[Live2D] Failed to send specific motion data: {e}")
-            return  # エラー時も何も返さない（会話を妨げない）
+            return "[内部処理エラー: モーション実行に失敗しましたが、会話は続けてください]"
 
     @function_tool
     async def set_character_expression(
         self,
         context: RunContext[StoryData],
         expression: str,
-    ) -> None:
+    ) -> str:
         """会話の感情や文脈に応じて、Live2Dキャラクターの表情を変更する。
         このツールは会話の雰囲気に合わせて自然に使用してください。
         
@@ -766,7 +786,7 @@ class LeadEditorAgent(Agent):
             expression: 表情名 ("F01", "F02", "F03", "F04", "F05", "F06", "F07", "F08")
         
         Returns:
-            None - ツールは静かに実行され、LLMに応答生成を要求しません
+            str: ツール実行結果（LLM内部用、ユーザーには見えない）
         """
         try:
             job_ctx = get_job_context()
@@ -783,12 +803,12 @@ class LeadEditorAgent(Agent):
             )
             
             logger.info(f"[Live2D] Expression set: {expression}")
-            # 何も返さない = LLMに応答生成を要求しない（ツールは静かに実行される）
-            return
+            # LLMに結果を返す（会話を続けるため）
+            return f"[内部処理完了: 表情{expression}を設定しました。会話を続けてください]"
             
         except Exception as e:
             logger.error(f"[Live2D] Failed to send expression data: {e}")
-            return  # エラー時も何も返さない（会話を妨げない）
+            return "[内部処理エラー: 表情変更に失敗しましたが、会話は続けてください]"
 
     @function_tool
     async def web_search(
