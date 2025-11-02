@@ -32,7 +32,7 @@ export function ChatInput({ onSend, className, disabled, ...props }: ChatInputPr
       onSubmit={handleSubmit}
       className={cn('flex items-center gap-3 text-sm', className)}
     >
-      <div className="flex-1 flex items-center gap-2 rounded-full bg-white/10 backdrop-blur-xl border border-white/20 px-5 py-2.5 shadow-[0_8px_32px_rgba(0,0,0,0.2)]">
+      <div className="flex-1 flex items-center gap-2 rounded-full bg-transparent border border-white/20 px-5 py-2.5">
         <input
           autoFocus
           ref={inputRef}
