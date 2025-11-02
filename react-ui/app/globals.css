@@ -205,7 +205,8 @@
   }
   body {
     @apply text-foreground;
-    background: transparent;
+    background: linear-gradient(180deg, #1a2f45 0%, #2c4a65 100%);
+    background-attachment: fixed;
   }
 }
 
